@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import UTC, datetime, date
 from typing import Optional
 from sqlalchemy import String, Text, Boolean, Integer, Float, Date, DateTime, JSON, ForeignKey
 from sqlalchemy.dialects import mysql
@@ -6,6 +6,10 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 LONG_TEXT = Text().with_variant(mysql.LONGTEXT(), "mysql")
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class Base(DeclarativeBase):
@@ -22,7 +26,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     notify_email: Mapped[bool] = mapped_column(Boolean, default=True)
     daily_total: Mapped[int] = mapped_column(Integer, default=6)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
 
 class Paper(Base):
@@ -54,7 +58,7 @@ class Paper(Base):
     bucket: Mapped[Optional[str]] = mapped_column(String(16))  # venue/arxiv
     pushed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     pushed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     tags: Mapped[list["Tag"]] = relationship("Tag", back_populates="paper", cascade="all, delete-orphan")
 
@@ -65,7 +69,7 @@ class Tag(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     paper_id: Mapped[int] = mapped_column(Integer, ForeignKey("papers.id"), index=True)
     tag_type: Mapped[str] = mapped_column(String(16), nullable=False)  # interested/not_interested/read_later
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     paper: Mapped["Paper"] = relationship("Paper", back_populates="tags")
 
@@ -79,7 +83,7 @@ class Keyword(Base):
     category: Mapped[str] = mapped_column(String(32), default="topic")
     aliases: Mapped[Optional[list]] = mapped_column(JSON)
     source: Mapped[str] = mapped_column(String(16), default="manual")
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
 
 
 class DigestHistory(Base):
@@ -91,7 +95,7 @@ class DigestHistory(Base):
     bucket_breakdown: Mapped[Optional[dict]] = mapped_column(JSON)
     channel: Mapped[str] = mapped_column(String(16), default="email")
     status: Mapped[str] = mapped_column(String(16), default="sent")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
 
 class SystemConfig(Base):
@@ -99,4 +103,4 @@ class SystemConfig(Base):
 
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[str] = mapped_column(Text, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)

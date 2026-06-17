@@ -386,20 +386,24 @@ paper-digest/
 
 **任务清单：**
 
-- [ ] `src/core/fetcher.py`：
+- [x] `src/core/fetcher.py`：
   - `fetch_arxiv(categories, date) → list[PaperRaw]`：调 arXiv API（`http://export.arxiv.org/api/query`），按类目 + 日期过滤，提取 title/authors/abstract/arxiv_id/pdf_url/comments
   - 速率：每次请求间隔 3s（arXiv 要求）
-- [ ] `src/core/dedup.py`：
+- [x] `src/core/dedup.py`：
   - `norm_title(t)` → 小写、去标点、压空格
   - `title_hash(t)` → SHA256[:16]
   - `find_duplicate(paper, db)` → 三级查询 doi → arxiv_id → title_hash
   - `merge_into(existing, incoming)` → 补 venue/doi，保留 pushed 状态
-- [ ] `src/core/venue_hint.py`：
+- [x] `src/core/venue_hint.py`：
   - 正则扫 arXiv comments 字段，匹配 "Accepted/to appear at OSDI'25" 等模式，返回 venue 名称或 None
   - 支持在 `config.sources.buckets[0].venues` 列表里匹配
-- [ ] `src/core/pipeline.py` 中 `run_fetch_job()`：fetch → venue_hint → dedup → upsert DB
-- [ ] 手动触发脚本 `scripts/run_fetch.py` 用于测试
-- [ ] `GET /api/papers`（分页+排序）+ `GET /api/papers/{id}`：供后续验证入库结果
+- [x] `src/core/pipeline.py` 中 `run_fetch_job()`：fetch → venue_hint → dedup → upsert DB
+- [x] 手动触发脚本 `scripts/run_fetch.py` 用于测试
+- [x] `GET /api/papers`（分页+排序）+ `GET /api/papers/{id}`：供后续验证入库结果
+
+**进度记录（2026-06-17）**：
+- 已补 Phase 2 的生产正确性修复：arXiv comments/DOI 按 `arxiv:` 扩展命名空间解析；API 查询包含 `submittedDate` 日期范围；跨源合并时已有 `venue`/`venue_hint` 的记录保持或升级到 venue 桶；upsert 异常统一计入 `errors`。
+- 已增加回归测试覆盖上述路径。已解决本机 sandbox/WSL/conda 环境下 `aiosqlite` worker 线程回调无法唤醒事件循环的问题，完整后端测试可跑通。
 
 **验收标准**：
 - 运行 `run_fetch.py` 后 papers 表有新记录
