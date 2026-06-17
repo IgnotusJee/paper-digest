@@ -118,5 +118,5 @@ curl http://localhost:8000/api/auth/me -b /tmp/c.txt
 
 ## 参考文档
 
-- `../paper-digest-plan.md` — 落地计划（施工蓝图，含验收标准）
+- `paper-digest-plan.md` — 落地计划（施工蓝图，含验收标准）
 - `../archive/` — 历史设计方案（v1 CLI / v2 Python+JSONL / v3 全栈）
