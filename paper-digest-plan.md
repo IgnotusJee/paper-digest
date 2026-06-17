@@ -421,15 +421,15 @@ paper-digest/
 
 **任务清单：**
 
-- [ ] `src/core/scorer.py`：
+- [x] `src/core/scorer.py`：
   - `keyword_match(paper, keywords) → float [0,1]`：主词 + aliases 加权匹配，归一化
   - `recency_score(paper) → float [0,1]`：时间指数衰减（7 天半衰期）
   - `source_prior(paper) → float`：venue=1.0 / venue_hint=0.8 / arxiv=0.6
   - `prefilter_score(paper, keyword, personal, has_personal) → float`：加权组合
-- [ ] `src/core/pipeline.py` 中 `assign_bucket(paper, cfg)` + 桶内预筛逻辑
-- [ ] `src/core/recommender.py`：按第 4.2 节实现三段门控（off/centroid/model），paper_id 锚定
-- [ ] `GET /api/keywords` + `POST/PUT/DELETE /api/keywords` + `POST /api/keywords/preset`（加载预设包）
-- [ ] 加载初始关键词 `scripts/seed_keywords.py`
+- [x] `src/core/pipeline.py` 中 `assign_bucket(paper, cfg)` + 桶内预筛逻辑
+- [x] `src/core/recommender.py`：按第 4.2 节实现三段门控（off/centroid/model），paper_id 锚定
+- [x] `GET /api/keywords` + `POST/PUT/DELETE /api/keywords` + `POST /api/keywords/preset`（加载预设包）
+- [x] 加载初始关键词 `scripts/seed_keywords.py`
 
 **验收标准**：
 - 有关键词配置的情况下，100 篇候选按 keyword_score 排序结果符合预期（人工检查前 10）
