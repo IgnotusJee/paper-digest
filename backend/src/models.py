@@ -1,7 +1,11 @@
 from datetime import datetime, date
 from typing import Optional
 from sqlalchemy import String, Text, Boolean, Integer, Float, Date, DateTime, JSON, ForeignKey
+from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+LONG_TEXT = Text().with_variant(mysql.LONGTEXT(), "mysql")
 
 
 class Base(DeclarativeBase):
@@ -31,8 +35,8 @@ class Paper(Base):
     venue: Mapped[Optional[str]] = mapped_column(String(32), index=True)
     venue_hint: Mapped[Optional[str]] = mapped_column(String(32), index=True)
     year: Mapped[Optional[int]] = mapped_column(Integer)
-    abstract_en: Mapped[Optional[str]] = mapped_column(Text)
-    abstract_cn: Mapped[Optional[str]] = mapped_column(Text)
+    abstract_en: Mapped[Optional[str]] = mapped_column(LONG_TEXT)
+    abstract_cn: Mapped[Optional[str]] = mapped_column(LONG_TEXT)
     summary_cn: Mapped[Optional[dict]] = mapped_column(JSON)
     comments: Mapped[Optional[str]] = mapped_column(Text)
     url: Mapped[Optional[str]] = mapped_column(Text)

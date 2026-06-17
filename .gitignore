@@ -24,9 +24,6 @@ certs/*.pem
 frontend/dist/
 frontend/node_modules/
 
-# Alembic
-backend/alembic/versions/*.py
-
 # Misc
 .DS_Store
 *.log

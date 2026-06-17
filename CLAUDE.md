@@ -34,7 +34,7 @@ paper-digest/
 │   ├── alembic.ini + alembic/  # 数据库迁移
 │   ├── config/default.json     # 默认配置（来源配额、LLM 预算、cron 时间等）
 │   ├── scripts/
-│   │   ├── init_db.py          # 建表 + seed 唯一账号（幂等）
+│   │   ├── init_db.py          # seed 唯一账号 + 默认配置（幂等）
 │   │   ├── seed_keywords.py    # 加载关键词预设（Phase 3）
 │   │   └── gen_client_cert.sh  # 自建 CA + 签设备证书（Phase 0）
 │   ├── prompts/                # LLM 提示词（Phase 4）
@@ -65,21 +65,26 @@ paper-digest/
 # 1. 环境准备
 cp .env.example .env          # 填写 DATABASE_URL, JWT_SECRET, ADMIN_*
 # MySQL 建库建用户（见 paper-digest-plan.md Phase 0）
+# Docker 内连接外部 MySQL 时，DATABASE_URL 的 host 用 MySQL 容器名/网络别名，不用 127.0.0.1
 
-# 2. 建表 + seed 账号
+# 2. 建表
 cd backend
 pip install -r requirements.txt
-python scripts/init_db.py
+alembic upgrade head
 
-# 3. 启动
+# 3. seed 唯一账号 + 默认配置
+python scripts/init_db.py
+# ADMIN_PASSWORD 只用于本步骤；seed 完成后可从运行时环境中移除
+
+# 4. 启动
 cd ..
 docker compose up -d
 
-# 4. 验证
+# 5. 验证
 curl http://localhost:8000/health
 curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"<ADMIN_PASSWORD"}' -c /tmp/c.txt
+  -d '{"username":"admin","password":"<ADMIN_PASSWORD>"}' -c /tmp/c.txt
 curl http://localhost:8000/api/auth/me -b /tmp/c.txt
 ```
 
@@ -96,7 +101,7 @@ curl http://localhost:8000/api/auth/me -b /tmp/c.txt
 
 6 张表：`users`（单行）、`papers`、`tags`（反馈）、`keywords`、`digest_history`、`system_config`。
 
-迁移：`cd backend && alembic upgrade head`
+迁移：`cd backend && alembic upgrade head`。初始化账号和默认 `system_config`：`python scripts/init_db.py`。
 
 ## 分阶段进度
 
