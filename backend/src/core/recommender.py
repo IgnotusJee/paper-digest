@@ -15,7 +15,7 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics.pairwise import cosine_similarity
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import APP_CONFIG
@@ -35,13 +35,13 @@ def _get_thresholds() -> dict:
 
 async def _count_tags(db: AsyncSession) -> tuple[int, int]:
     pos_result = await db.execute(
-        select(Tag).where(Tag.tag_type == "interested")
+        select(func.count(Tag.paper_id.distinct())).where(Tag.tag_type == "interested")
     )
-    pos_count = len(pos_result.scalars().all())
+    pos_count = pos_result.scalar_one()
     neg_result = await db.execute(
-        select(Tag).where(Tag.tag_type == "not_interested")
+        select(func.count(Tag.paper_id.distinct())).where(Tag.tag_type == "not_interested")
     )
-    neg_count = len(neg_result.scalars().all())
+    neg_count = neg_result.scalar_one()
     return pos_count, neg_count
 
 

@@ -99,6 +99,46 @@ class TestScoringJob:
         assert paper.prefilter_score > 0.0
         assert 0.0 <= paper.personal_score <= 1.0
 
+    @pytest.mark.asyncio
+    async def test_scoring_assigns_bucket_before_shortlist(self, db_session, monkeypatch):
+        monkeypatch.setattr("src.core.pipeline.APP_CONFIG", {
+            "sources": {
+                "buckets": [
+                    {"name": "venue", "venues": ["FAST"], "quota": 3, "enabled": True},
+                    {"name": "arxiv", "quota": 3, "enabled": True},
+                ],
+                "oversample": 3,
+            },
+            "scoring": {"prefilter": {"keyword": 0.45, "personal": 0.30, "recency": 0.15, "source_prior": 0.10}},
+            "recommender": {"min_pos_centroid": 1, "min_pos_model": 20, "min_neg_model": 20},
+        })
+        monkeypatch.setattr("src.core.scorer.APP_CONFIG", {
+            "sources": {"buckets": [{"name": "venue", "venues": ["FAST"]}]},
+            "scoring": {"prefilter": {"keyword": 0.45, "personal": 0.30, "recency": 0.15, "source_prior": 0.10}},
+        })
+
+        paper = Paper(
+            title="FAST Systems Study",
+            title_hash="fastbucket00001",
+            authors=["Author"],
+            abstract_en="A study of storage systems",
+            source="manual",
+            venue="FAST",
+            bucket=None,
+            prefilter_score=0.0,
+        )
+        db_session.add(paper)
+        await db_session.commit()
+
+        result = await run_scoring_job(db_session)
+        assert result["scored"] == 1
+
+        await db_session.refresh(paper)
+        assert paper.bucket == "venue"
+
+        shortlist = await generate_shortlist(db_session)
+        assert paper.id in {p.id for p in shortlist}
+
 
 class TestShortlist:
     @pytest.mark.asyncio

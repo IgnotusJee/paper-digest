@@ -48,6 +48,11 @@ async def _tag_paper(db, paper_id, tag_type):
     await db.commit()
 
 
+async def _tag_paper_many(db, paper_id, tag_type, count):
+    db.add_all(Tag(paper_id=paper_id, tag_type=tag_type) for _ in range(count))
+    await db.commit()
+
+
 class TestOffMode:
     @pytest.mark.asyncio
     async def test_mode_is_off(self, db_session):
@@ -98,6 +103,21 @@ class TestModelMode:
         mark_dirty()
         mode = await get_mode(db_session)
         assert mode == "model"
+
+    @pytest.mark.asyncio
+    async def test_duplicate_tags_do_not_activate_model_mode(self, db_session):
+        pos_paper = await _make_paper(db_session, 1, "Positive abstract about LLM inference")
+        neg_paper = await _make_paper(db_session, 2, "Negative abstract about quantum computing")
+
+        await _tag_paper_many(db_session, pos_paper.id, "interested", 21)
+        await _tag_paper_many(db_session, neg_paper.id, "not_interested", 21)
+
+        mark_dirty()
+        mode = await get_mode(db_session)
+        assert mode == "centroid"
+
+        result = await score(pos_paper, db_session)
+        assert 0.0 <= result <= 1.0
 
 
 class TestDirtyFlag:

@@ -134,6 +134,7 @@ async def run_scoring_job(db: AsyncSession | None = None) -> dict:
             paper.keyword_score = k_score
             paper.personal_score = p_score
             paper.prefilter_score = pf_score
+            paper.bucket = assign_bucket(paper.venue, paper.venue_hint)
             scored += 1
 
         await session.commit()
