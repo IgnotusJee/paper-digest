@@ -1,0 +1,48 @@
+{
+  "sources": {
+    "daily_total": 6,
+    "fill_policy": "strict",
+    "oversample": 3,
+    "buckets": [
+      {
+        "name": "venue",
+        "enabled": true,
+        "quota": 3,
+        "venues": ["FAST","OSDI","SOSP","ISCA","ASPLOS","EuroSys","ATC","NSDI","SC","VLDB","SIGMOD"],
+        "include_dblp": true,
+        "include_venue_hint": true
+      },
+      {
+        "name": "arxiv",
+        "enabled": true,
+        "quota": 3,
+        "arxiv_categories": ["cs.DC","cs.AR","cs.OS","cs.PF","cs.LG","cs.AI"]
+      }
+    ]
+  },
+  "scoring": {
+    "prefilter": {
+      "keyword": 0.45,
+      "personal": 0.30,
+      "recency": 0.15,
+      "source_prior": 0.10
+    }
+  },
+  "recommender": {
+    "min_pos_centroid": 1,
+    "min_pos_model": 20,
+    "min_neg_model": 20
+  },
+  "llm": {
+    "chain": ["deepseek", "kimi"],
+    "daily_budget": 0.50,
+    "max_cost_per_call": 0.10,
+    "batch_size": 12,
+    "circuit_threshold": 3,
+    "circuit_cooldown_sec": 600
+  },
+  "scheduler": {
+    "digest_cron": "0 9 * * *",
+    "fetch_cron": "30 */6 * * *"
+  }
+}

@@ -1,0 +1,32 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+*.egg
+dist/
+build/
+
+# Models (persist via Docker volume)
+backend/models/*.pkl
+backend/models/*.joblib
+
+# Certs (generated locally, never commit)
+certs/*.crt
+certs/*.key
+certs/*.p12
+certs/*.pem
+!certs/.gitkeep
+
+# Frontend build output
+frontend/dist/
+frontend/node_modules/
+
+# Alembic
+backend/alembic/versions/*.py
+
+# Misc
+.DS_Store
+*.log

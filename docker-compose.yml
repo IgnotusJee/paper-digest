@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../Dockerfile.backend
+    ports:
+      - "8000:8000"  # Phase 1 debug; removed in Phase 7 (nginx only)
+    env_file: .env
+    volumes:
+      - models_data:/app/models
+    networks:
+      - mysql_net
+    restart: unless-stopped
+
+volumes:
+  models_data:
+
+networks:
+  mysql_net:
+    external: true
+    name: ${MYSQL_NETWORK}
