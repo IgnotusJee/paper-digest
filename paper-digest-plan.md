@@ -447,15 +447,19 @@ paper-digest/
 
 **任务清单：**
 
-- [ ] `src/core/llm_client.py`：按第 4.6 节实现：
+- [x] `src/core/llm_client.py`：按第 4.6 节实现：
   - `LLMChain`：DeepSeek → Kimi，单次成本上限，日预算闸（读 system_config `cost:DATE`）
   - `CircuitBreaker`：连续失败 N 次 → 冷却期，冷却后半开
   - `chat_json(messages)` + `_parse_or_retry(raw)`：JSON 截断修复 + schema 校验
-- [ ] `src/core/pipeline.py` 中 `run_llm_rank(shortlist)` → 桶内按 LLM 分取配额 → 处理 fill_policy
-- [ ] `prompts/batch_score.txt`：提示词，要求返回 `{"papers": [{"id":..., "relevance":0-10, "reason":"..."}]}`
-- [ ] `prompts/batch_translate.txt`：对最终 6 篇批量翻译 + 生成 summary_cn 结构
-- [ ] `system_config` cost 记录写入与读取
-- [ ] `GET /api/settings` + `PUT /api/settings`（含 LLM 配置，面板可改 daily_budget）
+- [x] `src/core/pipeline.py` 中 `run_llm_rank(shortlist)` → 桶内按 LLM 分取配额 → 处理 fill_policy
+- [x] `prompts/batch_score.txt`：提示词，要求返回 `{"papers": [{"id":..., "relevance":0-10, "reason":"..."}]}`
+- [x] `prompts/batch_translate.txt`：对最终 6 篇批量翻译 + 生成 summary_cn 结构
+- [x] `system_config` cost 记录写入与读取
+- [x] `GET /api/settings` + `PUT /api/settings`（含 LLM 配置，面板可改 daily_budget）
+
+**进度记录（2026-06-18）**：
+- 已完成 Phase 4 的审计回归修复：`/api/settings` 现执行严格配置校验并仅负责保存；`run_scoring_job()` 改为每次重算全部论文的 `keyword_score/personal_score/prefilter_score/bucket`；LLM 在收到 200 响应且提供 usage 时，会先记账再做 JSON/schema/validator 校验，因此 malformed-but-200 响应也会计入当日成本。
+- 已补充 LLM 计费、LLM 降级、settings 校验、全量 rescoring 的回归测试，完整后端测试当前通过。
 
 **验收标准**：
 - 给 12 篇测试论文调 LLM，返回正确 JSON，papers 表 llm_score 有值

@@ -64,15 +64,17 @@ def recency_score(paper_created_at: datetime | None) -> float:
     return 0.5 ** (days / 7.0)
 
 
-def source_prior(venue: str | None, venue_hint: str | None) -> float:
+def source_prior(venue: str | None, venue_hint: str | None, app_config: dict | None = None) -> float:
     """Source priority based on publication status.
     
     venue in config venues list -> 1.0
     venue_hint present -> 0.8
     pure arxiv preprint -> 0.6
     """
+    app_config = app_config or APP_CONFIG
+
     if venue:
-        buckets_cfg = APP_CONFIG.get("sources", {}).get("buckets", [])
+        buckets_cfg = app_config.get("sources", {}).get("buckets", [])
         venue_bucket = next((b for b in buckets_cfg if b.get("name") == "venue"), None)
         if venue_bucket and venue in venue_bucket.get("venues", []):
             return 1.0
@@ -90,12 +92,14 @@ def prefilter_score(
     recency: float,
     source: float,
     has_personal: bool,
+    app_config: dict | None = None,
 ) -> float:
     """Weighted combination of all pre-LLM signals.
     
     When has_personal=False, personal weight is folded into keyword.
     """
-    weights = APP_CONFIG.get("scoring", {}).get("prefilter", {})
+    app_config = app_config or APP_CONFIG
+    weights = app_config.get("scoring", {}).get("prefilter", {})
     w_kw = weights.get("keyword", 0.45)
     w_per = weights.get("personal", 0.30)
     w_rec = weights.get("recency", 0.15)

@@ -5,11 +5,10 @@ from ..config import APP_CONFIG
 
 logger = logging.getLogger(__name__)
 
-_VENUE_PATTERNS: list[tuple[str, re.Pattern]] = []
+_VENUE_PATTERNS: dict[tuple[str, ...], list[tuple[str, re.Pattern]]] = {}
 
 
-def _build_patterns() -> list[tuple[str, re.Pattern]]:
-    venues = APP_CONFIG.get("sources", {}).get("buckets", [{}])[0].get("venues", [])
+def _build_patterns(venues: list[str]) -> list[tuple[str, re.Pattern]]:
     patterns = []
     for venue in venues:
         escaped = re.escape(venue)
@@ -23,14 +22,19 @@ def _build_patterns() -> list[tuple[str, re.Pattern]]:
     return patterns
 
 
-def extract_venue_hint(comments: str | None) -> str | None:
+def extract_venue_hint(comments: str | None, app_config: dict | None = None) -> str | None:
     if not comments:
         return None
 
-    if not _VENUE_PATTERNS:
-        _VENUE_PATTERNS.extend(_build_patterns())
+    app_config = app_config or APP_CONFIG
+    venues = app_config.get("sources", {}).get("buckets", [{}])[0].get("venues", [])
+    cache_key = tuple(venues)
+    patterns = _VENUE_PATTERNS.get(cache_key)
+    if patterns is None:
+        patterns = _build_patterns(venues)
+        _VENUE_PATTERNS[cache_key] = patterns
 
-    for venue, pattern in _VENUE_PATTERNS:
+    for venue, pattern in patterns:
         if pattern.search(comments):
             logger.debug("venue_hint matched: %s", venue)
             return venue

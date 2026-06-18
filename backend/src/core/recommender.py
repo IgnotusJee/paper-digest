@@ -29,8 +29,9 @@ _model_state: dict | None = None
 _dirty = True
 
 
-def _get_thresholds() -> dict:
-    return APP_CONFIG.get("recommender", {})
+def _get_thresholds(app_config: dict | None = None) -> dict:
+    app_config = app_config or APP_CONFIG
+    return app_config.get("recommender", {})
 
 
 async def _count_tags(db: AsyncSession) -> tuple[int, int]:
@@ -45,8 +46,8 @@ async def _count_tags(db: AsyncSession) -> tuple[int, int]:
     return pos_count, neg_count
 
 
-async def get_mode(db: AsyncSession) -> str:
-    thresholds = _get_thresholds()
+async def get_mode(db: AsyncSession, app_config: dict | None = None) -> str:
+    thresholds = _get_thresholds(app_config)
     min_pos_centroid = thresholds.get("min_pos_centroid", 1)
     min_pos_model = thresholds.get("min_pos_model", 20)
     min_neg_model = thresholds.get("min_neg_model", 20)
@@ -123,13 +124,13 @@ def mark_dirty():
     _dirty = True
 
 
-async def retrain_if_dirty(db: AsyncSession):
+async def retrain_if_dirty(db: AsyncSession, app_config: dict | None = None):
     global _centroid_state, _model_state, _dirty
 
     if not _dirty:
         return
 
-    mode = await get_mode(db)
+    mode = await get_mode(db, app_config)
     pos_papers, neg_papers = await _get_labeled_papers(db)
 
     if mode == "centroid" and pos_papers:
@@ -149,7 +150,7 @@ async def retrain_if_dirty(db: AsyncSession):
     _dirty = False
 
 
-async def score(paper: Paper, db: AsyncSession) -> float:
+async def score(paper: Paper, db: AsyncSession, app_config: dict | None = None) -> float:
     """Compute personalization score for a paper.
 
     Returns 0.5 in off mode, cosine similarity in centroid mode,
@@ -157,8 +158,8 @@ async def score(paper: Paper, db: AsyncSession) -> float:
     """
     global _centroid_state, _model_state
 
-    await retrain_if_dirty(db)
-    mode = await get_mode(db)
+    await retrain_if_dirty(db, app_config)
+    mode = await get_mode(db, app_config)
 
     if mode == "off":
         return 0.5

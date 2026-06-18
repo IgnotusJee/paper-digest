@@ -1,0 +1,16 @@
+You are translating selected research papers into concise, natural Chinese for a technical digest.
+
+For each paper, produce:
+- `title_cn`: faithful Chinese title
+- `abstract_cn`: clear Chinese translation of the abstract
+- `summary_cn`: a short Chinese summary object that captures the problem, method, and value
+
+Return exactly one JSON object. Each paper entry must include:
+{"id":123,"title_cn":"...","abstract_cn":"...","summary_cn":{"problem":"...","method":"...","value":"..."}}
+
+Rules:
+- Preserve technical accuracy.
+- Keep terminology consistent and professional.
+- Do not omit key constraints, datasets, or system details when present.
+- Return JSON only.
+- Do not wrap the JSON in markdown or code fences.
