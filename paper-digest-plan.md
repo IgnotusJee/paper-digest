@@ -529,6 +529,19 @@ paper-digest/
 - 路由守卫：未登录访问任意路由 → 跳 `/login`，登录后跳回原路由
 - `/settings/sources`：`SourceQuotaEditor` 组件，修改后 `PUT /api/settings/sources` 即时生效（写入 system_config）
 
+**进度记录（2026-06-19）**：
+- Phase 6 功能已基本落地：`/login`、`/dashboard`、`/digest`、`/papers`、`/papers/:id`、`/keywords`、`/settings` 均已可访问并接通现有 API。
+- 前端主题已从默认 Naive UI 风格收口为统一的研究工具语言：冷灰中性底、单一蓝色强调、统一圆角和卡片层级，避免“AI 紫色渐变 + 营销页”式默认输出。
+- 已完成本地开发登录链路修正：本地 HTTP 环境下 cookie 不再强制 `Secure`，可通过 Vite 代理与本地后端完成登录。
+- 已完成主要页面的视觉统一：`Login`、`Dashboard`、`Digest`、`Papers`、`Keywords`、`Settings` 及其公共组件均已收口到同一套样式。
+
+**下一步可做工作**：
+- 收口阅读页：继续整理 `PaperDetail` 与 `Digest` 中的阅读流密度，让“扫读 -> 展开摘要 -> 查看详情 -> 标记反馈”更顺手。
+- 增强论文库：增加按日期、tag、分数区间过滤，并支持显式展示当前筛选条件。
+- 细化设置页：将来源、LLM、调度拆成更明确的分区或子页，并增加“待保存变更”的可视化提示。
+- 提升关键词管理效率：支持表格内直接改权重、批量导入和更明确的分类/来源筛选。
+- 补前端自动化验收：引入 Playwright 冒烟测试，覆盖登录、digest 浏览、关键词 CRUD、设置保存。
+
 **验收标准**：
 - 无客户端证书的浏览器访问 443 → Nginx 400（TLS 握手失败，此阶段配好 Nginx mTLS）
 - 有证书的浏览器可正常登录
@@ -536,6 +549,7 @@ paper-digest/
 - 点「感兴趣」→ 按钮状态变更，刷新后保持
 - 关键词页增删可用，`POST /api/keywords/preset` 加载预设包
 - 来源配额改 quota → 次日推送比例变化（或手动触发验证）
+- 页面视觉语言一致，不再混用默认紫色强调、旧卡片半径和不成体系的控件样式
 
 ---
 

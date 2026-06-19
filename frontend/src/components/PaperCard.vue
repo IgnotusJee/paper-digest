@@ -150,16 +150,16 @@ function handleRemove() {
 
 <style scoped>
 .paper-card {
-  border-radius: 14px !important;
+  border-radius: 12px !important;
   cursor: pointer;
   transition: all 0.2s ease;
-  border: 1px solid #f0f0f0 !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
 .paper-card:hover {
-  border-color: #e0e7ff !important;
-  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.08) !important;
-  transform: translateY(-2px);
+  border-color: #bfdbfe !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06) !important;
+  transform: translateY(-1px);
 }
 
 .paper-card.compact {
@@ -183,7 +183,7 @@ function handleRemove() {
   line-height: 1.5;
   margin: 0;
   flex: 1;
-  color: #111827;
+  color: #0f172a;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -201,9 +201,9 @@ function handleRemove() {
   min-width: 42px;
   height: 28px;
   padding: 0 8px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-  color: #6366f1;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
   font-size: 13px;
   font-weight: 700;
 }
@@ -224,17 +224,17 @@ function handleRemove() {
 
 .meta-text {
   font-size: 12px;
-  color: #9ca3af;
+  color: #64748b;
   line-height: 1.4;
 }
 
 .meta-dot {
-  color: #d1d5db;
+  color: #cbd5e1;
   font-size: 12px;
 }
 
 .card-body {
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid #e2e8f0;
   margin-top: 12px;
   padding-top: 8px;
 }
@@ -246,7 +246,7 @@ function handleRemove() {
   padding: 4px 8px;
   border: none;
   background: none;
-  color: #6366f1;
+  color: #1d4ed8;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -255,7 +255,7 @@ function handleRemove() {
 }
 
 .expand-btn:hover {
-  background: #eef2ff;
+  background: #eff6ff;
 }
 
 .expand-content {
@@ -269,16 +269,16 @@ function handleRemove() {
 
 .summary-item {
   padding: 10px 12px;
-  background: #fafbfc;
+  background: #f8fafc;
   border-radius: 10px;
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid #2563eb;
 }
 
 .summary-label {
   display: block;
   font-size: 11px;
   font-weight: 600;
-  color: #6366f1;
+  color: #1d4ed8;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 4px;
@@ -287,17 +287,17 @@ function handleRemove() {
 .summary-text {
   font-size: 13px;
   line-height: 1.6;
-  color: #374151;
+  color: #334155;
   margin: 0;
 }
 
 .abstract-text {
   font-size: 13px;
   line-height: 1.7;
-  color: #4b5563;
+  color: #475569;
   margin: 0;
   padding: 8px 12px;
-  background: #fafbfc;
+  background: #f8fafc;
   border-radius: 8px;
 }
 
@@ -307,7 +307,7 @@ function handleRemove() {
   align-items: center;
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid #e2e8f0;
 }
 
 .card-links {

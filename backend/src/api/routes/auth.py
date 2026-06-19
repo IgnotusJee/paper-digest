@@ -7,10 +7,17 @@ from ...database import get_db
 from ...auth import verify_password, create_access_token, check_rate_limit
 from ...models import User
 from ..deps import get_current_user
+from ...config import BASE_URL
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-_COOKIE = dict(key="session", httponly=True, secure=True, samesite="strict", max_age=12 * 3600)
+_COOKIE = dict(
+    key="session",
+    httponly=True,
+    secure=BASE_URL.startswith("https://"),
+    samesite="strict",
+    max_age=12 * 3600,
+)
 
 
 class LoginRequest(BaseModel):

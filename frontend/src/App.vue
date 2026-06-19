@@ -4,17 +4,17 @@ import type { GlobalThemeOverrides } from 'naive-ui'
 
 const themeOverrides: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#6366f1',
-    primaryColorHover: '#818cf8',
-    primaryColorPressed: '#4f46e5',
-    primaryColorSuppl: '#a5b4fc',
-    infoColor: '#6366f1',
-    successColor: '#10b981',
-    warningColor: '#f59e0b',
-    errorColor: '#ef4444',
-    borderRadius: '10px',
-    borderRadiusSmall: '8px',
-    fontFamily: '"Inter", "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    primaryColor: '#2563eb',
+    primaryColorHover: '#1d4ed8',
+    primaryColorPressed: '#1e40af',
+    primaryColorSuppl: '#93c5fd',
+    infoColor: '#2563eb',
+    successColor: '#059669',
+    warningColor: '#d97706',
+    errorColor: '#dc2626',
+    borderRadius: '12px',
+    borderRadiusSmall: '10px',
+    fontFamily: '"Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     fontSize: '14px',
     fontSizeMini: '11px',
     fontSizeTiny: '12px',
@@ -23,9 +23,9 @@ const themeOverrides: GlobalThemeOverrides = {
     fontSizeLarge: '15px',
     fontSizeHuge: '16px',
     lineHeight: '1.6',
-    borderColor: '#e5e7eb',
-    dividerColor: '#f3f4f6',
-    hoverColor: '#f9fafb',
+    borderColor: '#e2e8f0',
+    dividerColor: '#e5e7eb',
+    hoverColor: '#f8fafc',
     cardColor: '#ffffff',
     modalColor: '#ffffff',
     popoverColor: '#ffffff',
@@ -41,8 +41,8 @@ const themeOverrides: GlobalThemeOverrides = {
     clearColorPressed: '#4b5563',
   },
   Card: {
-    borderRadius: '14px',
-    borderColor: '#f0f0f0',
+    borderRadius: '12px',
+    borderColor: '#e2e8f0',
     color: '#ffffff',
     titleFontSizeMedium: '15px',
     titleFontWeight: '600',
@@ -50,29 +50,29 @@ const themeOverrides: GlobalThemeOverrides = {
   },
   Button: {
     borderRadiusMedium: '10px',
-    borderRadiusSmall: '8px',
+    borderRadiusSmall: '10px',
     fontWeightStrong: '600',
     paddingMedium: '0 20px',
-    heightMedium: '38px',
+    heightMedium: '40px',
     heightSmall: '32px',
   },
   Input: {
     borderRadius: '10px',
-    heightMedium: '40px',
+    heightMedium: '42px',
     color: '#ffffff',
     colorFocus: '#ffffff',
-    borderHover: '#6366f1',
-    borderFocus: '#6366f1',
-    boxShadowFocus: '0 0 0 3px rgba(99, 102, 241, 0.15)',
-    caretColor: '#6366f1',
+    borderHover: '#2563eb',
+    borderFocus: '#2563eb',
+    boxShadowFocus: '0 0 0 3px rgba(37, 99, 235, 0.14)',
+    caretColor: '#2563eb',
   },
   Tag: {
-    borderRadius: '8px',
+    borderRadius: '999px',
     fontWeight: '500',
   },
   Menu: {
-    borderRadius: '8px',
-    itemHeightMedium: '42px',
+    borderRadius: '10px',
+    itemHeightMedium: '44px',
     itemIconSize: '20px',
   },
   DataTable: {
@@ -106,8 +106,6 @@ const themeOverrides: GlobalThemeOverrides = {
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 *,
 *::before,
 *::after {
@@ -122,9 +120,11 @@ html {
 }
 
 body {
-  font-family: 'Inter', 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #f8fafc;
-  color: #1e293b;
+  font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.05), transparent 30%),
+    linear-gradient(180deg, #f8fafc 0%, #f3f7fb 100%);
+  color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
@@ -154,15 +154,15 @@ a {
 }
 
 .n-card {
-  transition: box-shadow 0.2s ease, transform 0.15s ease;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
 }
 
 .n-card:hover {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.05);
 }
 
 .n-button {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .n-tag {

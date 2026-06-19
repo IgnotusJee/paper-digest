@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue'
-import { useMessage, NDataTable, NButton, NSpace, NIcon, NPopconfirm, NSelect } from 'naive-ui'
-import { AddOutline, TrashOutline, CreateOutline } from '@vicons/ionicons5'
+import { useMessage, NDataTable, NButton, NSpace, NIcon, NPopconfirm, NSelect, NCard, NTag } from 'naive-ui'
+import { AddOutline, TrashOutline, CreateOutline, GitNetworkOutline } from '@vicons/ionicons5'
 import PageHeader from '@/components/PageHeader.vue'
 import KeywordModal from '@/components/KeywordModal.vue'
 import * as keywordsApi from '@/api/keywords'
@@ -122,11 +122,11 @@ onMounted(fetchKeywords)
 
 <template>
   <div>
-    <PageHeader title="关键词" description="管理推荐系统的关键词权重">
+    <PageHeader title="关键词" description="维护推荐系统的主题词、方法词和系统词，直接影响召回与排序。">
       <template #actions>
         <NSpace>
-          <NButton @click="handleLoadPreset" secondary round>加载预设</NButton>
-          <NButton type="primary" @click="openAdd" round>
+          <NButton @click="handleLoadPreset" secondary>加载预设</NButton>
+          <NButton type="primary" @click="openAdd">
             <template #icon><NIcon :component="AddOutline" /></template>
             添加关键词
           </NButton>
@@ -134,9 +134,29 @@ onMounted(fetchKeywords)
       </template>
     </PageHeader>
 
-    <div class="keywords-card">
+    <NCard class="keywords-card" :bordered="false">
+      <div class="keywords-head">
+        <div class="keywords-title-group">
+          <div class="keywords-icon">
+            <NIcon :size="18"><GitNetworkOutline /></NIcon>
+          </div>
+          <div>
+            <h3 class="keywords-title">关键词字典</h3>
+            <p class="keywords-copy">在这里维护召回词库和人工权重。</p>
+          </div>
+        </div>
+        <NTag round :bordered="false" class="keywords-meta">{{ keywords.length }} 条记录</NTag>
+      </div>
+
       <div class="keywords-filter">
-        <NSelect v-model:value="categoryFilter" :options="categoryOptions" placeholder="筛选分类" clearable style="width: 160px;" @update:value="fetchKeywords" />
+        <NSelect
+          v-model:value="categoryFilter"
+          :options="categoryOptions"
+          placeholder="筛选分类"
+          clearable
+          class="keywords-select"
+          @update:value="fetchKeywords"
+        />
       </div>
 
       <NDataTable
@@ -147,7 +167,7 @@ onMounted(fetchKeywords)
         :single-line="false"
         size="small"
       />
-    </div>
+    </NCard>
 
     <KeywordModal
       :show="showModal"
@@ -160,13 +180,71 @@ onMounted(fetchKeywords)
 
 <style scoped>
 .keywords-card {
-  background: #fff;
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 20px;
-  border: 1px solid #f0f0f0;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.keywords-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.keywords-title-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.keywords-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  color: #1d4ed8;
+  flex-shrink: 0;
+}
+
+.keywords-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.keywords-copy {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.keywords-meta {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  border: 1px solid #e2e8f0;
 }
 
 .keywords-filter {
   margin-bottom: 16px;
+}
+
+.keywords-select {
+  width: 180px;
+}
+
+@media (max-width: 768px) {
+  .keywords-head {
+    flex-direction: column;
+  }
+
+  .keywords-select {
+    width: 100%;
+  }
 }
 </style>

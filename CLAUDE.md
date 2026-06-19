@@ -18,7 +18,7 @@ Nginx (443, mTLS) → FastAPI backend (8000) → MySQL (外部容器)
 - 认证：argon2id + JWT（httpOnly cookie）+ Nginx mTLS 客户端证书
 - 推荐：TF-IDF 质心 → CalibratedLR（三段门控，按反馈量自动切换）
 - 定时：APScheduler（内嵌 backend）
-- 前端：Vue 3 + Naive UI + TypeScript + Vite
+- 前端：Vue 3 + Naive UI + TypeScript + Vite（研究工具风格 UI，已完成主要页面统一）
 - 邮件：aiosmtplib + Jinja2
 
 ## 目录结构
@@ -59,6 +59,7 @@ paper-digest/
 └── frontend/                   # Vue 3 + Naive UI + TypeScript + Vite
     ├── package.json
     ├── vite.config.ts          # API 代理到 localhost:8000
+    ├── README.md               # 前端结构、当前状态、下一步工作
     └── src/
         ├── main.ts             # 入口
         ├── App.vue             # Naive UI 主题配置
@@ -136,6 +137,12 @@ npm run build          # 输出到 frontend/dist/
 | 5 | 邮件通知 + 反馈链接 | ✅ |
 | 6 | 前端（Vue 3 + Naive UI） | ✅ |
 | 7 | 部署上线（Nginx mTLS + APScheduler） | ⬜ |
+
+## 前端补充说明
+
+- 当前主视觉已经统一到偏 Linear 的研究工作台风格，重点服务 AI researcher 的“扫读论文 -> 标记反馈 -> 调整订阅”流程。
+- 已完成统一收口的页面：`/login`、`/dashboard`、`/digest`、`/papers`、`/keywords`、`/settings`。
+- 下一步前端重点不是继续堆页面，而是提升阅读流与设置流的效率：优先改 `PaperDetail`、`Digest`、筛选体验和前端自动化验收。
 
 ## 参考文档
 

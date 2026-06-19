@@ -2,8 +2,14 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { NCard, NForm, NFormItem, NInput, NButton, NText, NIcon, useMessage } from 'naive-ui'
-import { LogInOutline, DocumentTextOutline } from '@vicons/ionicons5'
+import { NCard, NForm, NFormItem, NInput, NButton, NIcon, useMessage, NTag } from 'naive-ui'
+import {
+  LogInOutline,
+  DocumentTextOutline,
+  SparklesOutline,
+  GitNetworkOutline,
+  MailOutline,
+} from '@vicons/ionicons5'
 
 const router = useRouter()
 const route = useRoute()
@@ -12,6 +18,11 @@ const msg = useMessage()
 
 const form = ref({ username: '', password: '' })
 const loading = ref(false)
+const productSignals = [
+  { label: '每日精选', icon: SparklesOutline },
+  { label: '论文解读', icon: DocumentTextOutline },
+  { label: '关键词订阅', icon: GitNetworkOutline },
+]
 
 async function handleLogin() {
   if (!form.value.username || !form.value.password) {
@@ -40,29 +51,54 @@ async function handleLogin() {
 
 <template>
   <div class="login-page">
-    <div class="login-bg">
-      <div class="bg-shape bg-shape-1"></div>
-      <div class="bg-shape bg-shape-2"></div>
-      <div class="bg-shape bg-shape-3"></div>
-    </div>
-
     <div class="login-container">
-      <div class="login-brand">
-        <div class="brand-icon">
-          <NIcon :size="32" color="#fff"><DocumentTextOutline /></NIcon>
+      <div class="login-brand-panel">
+        <div class="brand-topline">
+          <span class="status-dot"></span>
+          AI research briefings
         </div>
-        <h1 class="brand-title">Paper Digest</h1>
-        <p class="brand-subtitle">AI 驱动的论文日报系统</p>
+
+        <div class="login-brand">
+          <div class="brand-icon">
+            <NIcon :size="28" color="#eff6ff"><DocumentTextOutline /></NIcon>
+          </div>
+          <h1 class="brand-title">Paper Digest</h1>
+          <p class="brand-subtitle">为 AI researcher 提供每日论文阅读、筛选与推送。</p>
+        </div>
+
+        <div class="signal-row">
+          <NTag v-for="signal in productSignals" :key="signal.label" round :bordered="false" class="signal-tag">
+            <template #icon>
+              <NIcon :component="signal.icon" />
+            </template>
+            {{ signal.label }}
+          </NTag>
+        </div>
+
+        <div class="brand-metrics">
+          <div class="metric-block">
+            <span class="metric-value">Venue + arXiv</span>
+            <span class="metric-label">双通道来源</span>
+          </div>
+          <div class="metric-block">
+            <span class="metric-value">中文摘要</span>
+            <span class="metric-label">面向快速扫读</span>
+          </div>
+        </div>
       </div>
 
-      <NCard class="login-card">
+      <NCard class="login-card" :bordered="false">
         <div class="card-header">
-          <h2 class="card-title">欢迎回来</h2>
-          <p class="card-desc">登录以查看今日推荐</p>
+          <div class="card-badge">
+            <NIcon :size="14"><MailOutline /></NIcon>
+            Secure access
+          </div>
+          <h2 class="card-title">登录研究面板</h2>
+          <p class="card-desc">查看今日 digest、关键词追踪与论文库。</p>
         </div>
 
         <NForm @submit.prevent="handleLogin" size="large">
-          <NFormItem label="用户名" :show-label="false">
+          <NFormItem label="用户名">
             <NInput
               v-model:value="form.username"
               placeholder="用户名"
@@ -70,7 +106,7 @@ async function handleLogin() {
               :input-props="{ autocomplete: 'username' }"
             />
           </NFormItem>
-          <NFormItem label="密码" :show-label="false">
+          <NFormItem label="密码">
             <NInput
               v-model:value="form.password"
               type="password"
@@ -94,166 +130,206 @@ async function handleLogin() {
           </NButton>
         </NForm>
       </NCard>
-
-      <p class="login-footer">
-        <span class="footer-dot"></span>
-        仅限授权设备访问
-      </p>
     </div>
   </div>
 </template>
 
 <style scoped>
 .login-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8fafc;
-  position: relative;
-  overflow: hidden;
-}
-
-.login-bg {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  z-index: 0;
-}
-
-.bg-shape {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.5;
-}
-
-.bg-shape-1 {
-  width: 500px;
-  height: 500px;
-  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
-  top: -150px;
-  right: -100px;
-}
-
-.bg-shape-2 {
-  width: 400px;
-  height: 400px;
-  background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
-  bottom: -100px;
-  left: -100px;
-}
-
-.bg-shape-3 {
-  width: 300px;
-  height: 300px;
-  background: linear-gradient(135deg, #67e8f9 0%, #22d3ee 100%);
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  opacity: 0.2;
+  padding: 32px;
 }
 
 .login-container {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
+  width: min(1120px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 420px);
+  gap: 28px;
+  align-items: stretch;
+}
+
+.login-brand-panel {
+  padding: 40px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.92) 100%),
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 32%);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.06);
+}
+
+.brand-topline {
+  display: inline-flex;
   align-items: center;
-  width: 100%;
-  max-width: 420px;
-  padding: 20px;
+  gap: 8px;
+  font-size: 12px;
+  color: #475569;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(241, 245, 249, 0.9);
+  border: 1px solid #e2e8f0;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
 }
 
 .login-brand {
-  text-align: center;
-  margin-bottom: 36px;
+  margin-top: 28px;
+  margin-bottom: 24px;
+  max-width: 520px;
 }
 
 .brand-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 20px;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);
+  margin-bottom: 20px;
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.22);
 }
 
 .brand-title {
-  font-size: 32px;
+  font-size: 42px;
   font-weight: 800;
-  color: #111827;
+  color: #0f172a;
   margin: 0;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
 }
 
 .brand-subtitle {
-  font-size: 15px;
-  color: #6b7280;
-  margin-top: 8px;
+  font-size: 17px;
+  color: #475569;
+  margin-top: 14px;
   font-weight: 400;
+  max-width: 28ch;
+}
+
+.signal-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.signal-tag {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+}
+
+.brand-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.metric-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.metric-label {
+  font-size: 13px;
+  color: #64748b;
 }
 
 .login-card {
   width: 100%;
-  border-radius: 20px !important;
-  box-shadow: 0 4px 40px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.8) !important;
-  backdrop-filter: blur(20px);
+  border-radius: 12px !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08) !important;
+  align-self: center;
 }
 
 .card-header {
-  text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
+}
+
+.card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  font-size: 12px;
+  margin-bottom: 14px;
 }
 
 .card-title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
-  color: #111827;
+  color: #0f172a;
   margin: 0;
 }
 
 .card-desc {
   font-size: 14px;
-  color: #9ca3af;
-  margin-top: 6px;
+  color: #64748b;
+  margin-top: 8px;
 }
 
 .login-btn {
-  height: 46px !important;
+  height: 44px !important;
   font-size: 15px !important;
   font-weight: 600 !important;
-  border-radius: 12px !important;
+  border-radius: 10px !important;
   margin-top: 8px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%) !important;
   border: none !important;
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3) !important;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2) !important;
   transition: all 0.2s ease;
 }
 
 .login-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(99, 102, 241, 0.4) !important;
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.25) !important;
 }
 
-.login-footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 28px;
-  font-size: 13px;
-  color: #9ca3af;
+@media (max-width: 960px) {
+  .login-container {
+    grid-template-columns: 1fr;
+  }
+
+  .login-brand-panel {
+    padding: 28px;
+  }
+
+  .brand-title {
+    font-size: 34px;
+  }
 }
 
-.footer-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+@media (max-width: 640px) {
+  .login-page {
+    padding: 20px;
+  }
+
+  .brand-metrics {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

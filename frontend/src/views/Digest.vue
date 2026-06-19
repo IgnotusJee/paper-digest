@@ -178,20 +178,20 @@ onMounted(() => fetchDigest())
   gap: 10px;
   margin-bottom: 24px;
   padding: 12px 16px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.88);
   border-radius: 12px;
-  border: 1px solid #f0f0f0;
+  border: 1px solid #e2e8f0;
 }
 
 .meta-date {
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: #0f172a;
 }
 
 .meta-count {
   font-size: 13px;
-  color: #9ca3af;
+  color: #64748b;
   margin-left: auto;
 }
 
@@ -213,7 +213,7 @@ onMounted(() => fetchDigest())
 
 .bucket-count {
   font-size: 13px;
-  color: #9ca3af;
+  color: #64748b;
 }
 
 .paper-list {

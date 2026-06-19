@@ -27,25 +27,26 @@ defineSlots<{
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   gap: 16px;
   flex-wrap: wrap;
 }
 
 .header-title {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 800;
-  color: #111827;
+  color: #0f172a;
   margin: 0;
-  letter-spacing: -0.5px;
-  line-height: 1.2;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .header-desc {
   font-size: 14px;
-  color: #9ca3af;
-  margin: 6px 0 0;
+  color: #64748b;
+  margin: 8px 0 0;
   font-weight: 400;
+  max-width: 64ch;
 }
 
 .header-actions {
