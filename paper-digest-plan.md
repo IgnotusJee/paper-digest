@@ -490,6 +490,8 @@ paper-digest/
 - 已完成 Phase 5 审计回归修复：digest 仅在邮件发送成功后才会消费论文并写入成功历史；同日若只有失败历史则允许重试；`DigestHistory.status` 仅表示投递结果，新增 `degraded` 独立表示排序是否降级。
 - feedback 链接已调整为安全的二次确认模型：`GET /feedback` 只展示确认页，`POST /feedback` 才落库；重复提交 POST 幂等，最终只保留一个目标 tag。
 - `EmailNotifier.send_digest()` 已修复 MIME 组装，digest 正文以 HTML multipart 发送，不再把 HTML 当纯文本正文。
+- 已完成本地 Docker 验收：使用临时 compose override 拉起 `backend + mysql:8.0`，执行 `alembic upgrade head`、`scripts/init_db.py`、`scripts/seed_keywords.py --preset llm_infra`，并完成登录、`/api/papers`、`/api/keywords`、`/api/settings`、feedback GET/POST、登录态 tag、`/api/digest/{date}` 的容器内 HTTP 联调。
+- 已验证 digest 失败路径：在未配置 SMTP 的本地环境执行 `scripts/run_digest.py --date 2026-06-19`，返回 `sent=False` / `email_status='failed'` / `degraded=True`；数据库确认失败历史已落库，且候选论文保持 `pushed=False`，符合“失败不消费、同日可重试”的预期。
 
 **验收标准**：
 - 运行 `run_digest.py` 且 SMTP 可用：仅成功发送后 `papers.pushed=True`，`digest_history.status='sent'`，并记录 `degraded`
@@ -554,6 +556,10 @@ paper-digest/
 - [ ] `src/main.py` 中 `lifespan` 启动/关闭 scheduler
 - [ ] 测试：`docker compose up -d`，观察 `docker compose logs -f backend` 确认 scheduler 启动
 - [ ] 手动触发 `daily_digest_job` 一次：`POST /api/settings/trigger-digest`（保留；需携带有效 cookie 才能访问，防止公网任意触发）
+
+**进度记录（2026-06-19）**：
+- 已完成本地容器化冒烟验证，但范围仅限 `backend + mysql`：镜像构建、数据库迁移、初始化、样本数据注入和 API 联调均已跑通。
+- Phase 7 生产项仍未开始：`nginx.conf`、mTLS、frontend 生产构建、scheduler 与 `trigger-digest` 管理接口尚未实现或验收，不能据此视为部署上线完成。
 
 **验收标准**：
 - 无客户端证书的浏览器访问 `https://paper.yourdomain.com` → 400 Bad Request（TLS 握手失败）
