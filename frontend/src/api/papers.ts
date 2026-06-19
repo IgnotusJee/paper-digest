@@ -1,32 +1,26 @@
-import client from './client';
-import type { Paper } from '../types';
+import client from './client'
+import type { ListPapersResponse, Paper, TagType } from '@/types'
 
 export interface ListPapersParams {
-  page?: number;
-  size?: number;
-  sort?: 'created_at' | 'final_score' | 'keyword_score';
-  order?: 'asc' | 'desc';
-  bucket?: 'venue' | 'arxiv' | null;
+  page?: number
+  size?: number
+  sort?: string
+  order?: string
+  bucket?: string
 }
 
-export interface ListPapersResponse {
-  items: Paper[];
-  total: number;
-  page: number;
-  pages: number;
+export function listPapers(params: ListPapersParams = {}) {
+  return client.get<ListPapersResponse>('/api/papers', { params })
 }
 
-export const papersApi = {
-  list(params: ListPapersParams) {
-    return client.get<ListPapersResponse>('/api/papers', { params });
-  },
-  get(id: number) {
-    return client.get<Paper>(`/api/papers/${id}`);
-  },
-  tag(id: number, tagType: 'interested' | 'not_interested' | 'read_later') {
-    return client.post(`/api/papers/${id}/tag`, { tag_type: tagType });
-  },
-  removeTag(id: number) {
-    return client.delete(`/api/papers/${id}/tag`);
-  },
-};
+export function getPaper(id: number) {
+  return client.get<Paper>(`/api/papers/${id}`)
+}
+
+export function addTag(paperId: number, tagType: TagType) {
+  return client.post(`/api/papers/${paperId}/tag`, { tag_type: tagType })
+}
+
+export function removeTag(paperId: number) {
+  return client.delete(`/api/papers/${paperId}/tag`)
+}

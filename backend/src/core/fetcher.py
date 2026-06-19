@@ -6,7 +6,7 @@ from datetime import date, timedelta
 
 import httpx
 
-ARXIV_API = "http://export.arxiv.org/api/query"
+ARXIV_API = "https://export.arxiv.org/api/query"
 ATOM_NS = {
     "a": "http://www.w3.org/2005/Atom",
     "arxiv": "http://arxiv.org/schemas/atom",
@@ -113,7 +113,7 @@ async def fetch_arxiv(
 
     own_client = client is None
     if own_client:
-        client = httpx.AsyncClient(timeout=30)
+        client = httpx.AsyncClient(timeout=30, follow_redirects=True)
 
     results: list[PaperRaw] = []
     try:
@@ -128,13 +128,13 @@ async def fetch_arxiv(
                 "max_results": page_size,
             }
             try:
-                resp = await client.get(ARXIV_API, params=params)
+                resp = await client.get(ARXIV_API, params=params, follow_redirects=True)
                 resp.raise_for_status()
             except httpx.HTTPError:
                 logger.warning("arXiv API request failed (offset=%d), retrying once", offset)
                 await asyncio.sleep(5)
                 try:
-                    resp = await client.get(ARXIV_API, params=params)
+                    resp = await client.get(ARXIV_API, params=params, follow_redirects=True)
                     resp.raise_for_status()
                 except httpx.HTTPError:
                     logger.error("arXiv API retry failed, aborting fetch")

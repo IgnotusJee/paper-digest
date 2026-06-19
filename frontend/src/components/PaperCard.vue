@@ -1,227 +1,346 @@
-<template>
-  <n-card class="paper-card" hoverable :title="displayTitle">
-    <template #header-extra>
-      <div style="display: flex; gap: 8px; align-items: center;">
-        <n-tag :type="bucketType" size="small">{{ bucketLabel }}</n-tag>
-        <n-tag v-if="venueLabel" type="warning" size="small">{{ venueLabel }}</n-tag>
-        <span class="score-badge">{{ paper.final_score.toFixed(2) }}分</span>
-      </div>
-    </template>
-
-    <div class="authors">
-      {{ formatAuthors(paper.authors) }}
-    </div>
-
-    <!-- Brief summary if present, otherwise english abstract -->
-    <div class="abstract-section">
-      <div v-if="hasSummary" class="cn-summary">
-        <div class="summary-item">
-          <strong>核心问题: </strong>
-          <span>{{ summaryDetails?.core_issue }}</span>
-        </div>
-        <div class="summary-item">
-          <strong>创新方法: </strong>
-          <span>{{ summaryDetails?.key_method }}</span>
-        </div>
-      </div>
-      <p v-else class="abstract-en">
-        {{ truncate(paper.abstract_cn || paper.abstract_en || '', 200) }}
-      </p>
-    </div>
-
-    <template #footer>
-      <div class="footer-row">
-        <div class="tag-actions">
-          <n-button-group size="small">
-            <n-button
-              :type="currentTag === 'interested' ? 'success' : 'default'"
-              secondary
-              @click="toggleTag('interested')"
-            >
-              感兴趣
-            </n-button>
-            <n-button
-              :type="currentTag === 'not_interested' ? 'error' : 'default'"
-              secondary
-              @click="toggleTag('not_interested')"
-            >
-              不感兴趣
-            </n-button>
-            <n-button
-              :type="currentTag === 'read_later' ? 'info' : 'default'"
-              secondary
-              @click="toggleTag('read_later')"
-            >
-              稍后读
-            </n-button>
-          </n-button-group>
-        </div>
-        <div class="navigation-actions">
-          <n-button size="small" type="primary" text @click="goToDetail">
-            查看详情 &rarr;
-          </n-button>
-        </div>
-      </div>
-    </template>
-  </n-card>
-</template>
-
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import type { Paper } from '../types';
-import { papersApi } from '../api/papers';
-import { useMessage } from 'naive-ui';
+import { ref, computed } from 'vue'
+import { NCard, NTag, NText, NSpace, NIcon, NButton } from 'naive-ui'
+import { ChevronDownOutline, OpenOutline, DocumentOutline, PeopleOutline } from '@vicons/ionicons5'
+import TagButtonGroup from './TagButtonGroup.vue'
+import type { PaperListItem, DigestPaper, TagType } from '@/types'
 
 const props = defineProps<{
-  paper: Paper;
-}>();
+  paper: PaperListItem | DigestPaper
+  showAbstract?: boolean
+  compact?: boolean
+}>()
 
 const emit = defineEmits<{
-  (e: 'tag-updated', paperId: number, newTag: string | null): void;
-}>();
+  tag: [paperId: number, type: TagType]
+  remove: [paperId: number]
+  click: [paperId: number]
+}>()
 
-const router = useRouter();
-const message = useMessage();
-
-const currentTag = ref<'interested' | 'not_interested' | 'read_later' | null>(
-  props.paper.tag_type || null
-);
-
-// If backend doesn't populate paper.tag_type directly on list endpoint, we can load or respect what is passed.
-// Wait, is tag_type passed directly? We'll see.
-onMounted(() => {
-  currentTag.value = props.paper.tag_type || null;
-});
-
-const displayTitle = computed(() => {
-  // If translated title exists, show it, otherwise English title.
-  return props.paper.summary_cn?.title_cn || props.paper.title;
-});
-
-const bucketType = computed(() => {
-  if (props.paper.bucket === 'venue') return 'info';
-  if (props.paper.bucket === 'arxiv') return 'default';
-  return 'warning';
-});
-
-const bucketLabel = computed(() => {
-  if (props.paper.bucket === 'venue') return '期刊会议';
-  if (props.paper.bucket === 'arxiv') return 'arXiv预印本';
-  return '未归桶';
-});
+const expanded = ref(false)
 
 const venueLabel = computed(() => {
-  if (props.paper.venue) {
-    return `已见刊 ${props.paper.venue}`;
-  }
-  if (props.paper.venue_hint) {
-    return `录用指向 ${props.paper.venue_hint}`;
-  }
-  return null;
-});
+  const p = props.paper
+  if (p.venue) return p.venue
+  if (p.venue_hint) return `${p.venue_hint}（录用指向）`
+  return null
+})
 
-const hasSummary = computed(() => {
-  return !!(
-    props.paper.summary_cn &&
-    props.paper.summary_cn.summary_cn
-  );
-});
+const venueType = computed(() => {
+  if (props.paper.venue) return 'success' as const
+  if (props.paper.venue_hint) return 'warning' as const
+  return undefined
+})
 
-const summaryDetails = computed(() => {
-  return props.paper.summary_cn?.summary_cn;
-});
+const abstractText = computed(() => {
+  const p = props.paper as any
+  return p.abstract_cn || null
+})
 
-function formatAuthors(authors: any): string {
-  if (!authors) return '';
-  if (Array.isArray(authors)) {
-    return authors.join(', ');
+const summaryFields = computed(() => {
+  const p = props.paper as any
+  if (!p.summary_cn || typeof p.summary_cn !== 'object') return []
+  const labels: Record<string, string> = {
+    core_issue: '核心问题',
+    innovation: '创新点',
+    key_method: '关键方法',
+    experiment_highlights: '实验亮点',
+    recommendation_reason: '推荐理由',
   }
-  try {
-    const parsed = typeof authors === 'string' ? JSON.parse(authors) : authors;
-    if (Array.isArray(parsed)) {
-      return parsed.join(', ');
-    }
-  } catch (e) {}
-  return String(authors);
+  return Object.entries(labels)
+    .filter(([k]) => p.summary_cn[k])
+    .map(([k, label]) => ({ label, value: p.summary_cn[k] }))
+})
+
+const shortAuthors = computed(() => {
+  const authors = (props.paper as any).authors
+  if (!authors?.length) return ''
+  const first3 = authors.slice(0, 3).join(', ')
+  return authors.length > 3 ? `${first3} 等` : first3
+})
+
+function handleTag(type: TagType) {
+  emit('tag', props.paper.id, type)
 }
 
-function truncate(str: string, len: number): string {
-  if (str.length <= len) return str;
-  return str.slice(0, len) + '...';
-}
-
-async function toggleTag(tagType: 'interested' | 'not_interested' | 'read_later') {
-  const targetTag = currentTag.value === tagType ? null : tagType;
-  
-  try {
-    if (targetTag) {
-      await papersApi.tag(props.paper.id, targetTag);
-      currentTag.value = targetTag;
-      message.success(`已标记为“${getTagName(targetTag)}”`);
-    } else {
-      await papersApi.removeTag(props.paper.id);
-      currentTag.value = null;
-      message.success('已取消标记');
-    }
-    emit('tag-updated', props.paper.id, targetTag);
-  } catch (e) {
-    message.error('标记操作失败');
-  }
-}
-
-function getTagName(tag: string): string {
-  if (tag === 'interested') return '感兴趣';
-  if (tag === 'not_interested') return '不感兴趣';
-  if (tag === 'read_later') return '稍后读';
-  return tag;
-}
-
-function goToDetail() {
-  router.push(`/papers/${props.paper.id}`);
+function handleRemove() {
+  emit('remove', props.paper.id)
 }
 </script>
 
+<template>
+  <NCard
+    :class="['paper-card', { compact }]"
+    :bordered="true"
+    size="small"
+    @click="emit('click', paper.id)"
+  >
+    <div class="card-top">
+      <div class="card-title-row">
+        <h3 class="paper-title">{{ paper.title }}</h3>
+        <div class="card-score">
+          <span class="score-value">{{ paper.final_score.toFixed(2) }}</span>
+        </div>
+      </div>
+
+      <div class="card-tags">
+        <NTag v-if="venueLabel" :type="venueType" size="small" :bordered="false" round>
+          {{ venueLabel }}
+        </NTag>
+        <NTag
+          v-if="paper.bucket"
+          size="small"
+          :bordered="false"
+          round
+          :type="paper.bucket === 'venue' ? 'info' : 'success'"
+        >
+          {{ paper.bucket === 'venue' ? '顶会' : 'arXiv' }}
+        </NTag>
+      </div>
+
+      <div class="card-meta" v-if="shortAuthors">
+        <NIcon :size="14" color="#9ca3af"><PeopleOutline /></NIcon>
+        <span class="meta-text">{{ shortAuthors }}</span>
+        <template v-if="(paper as any).year">
+          <span class="meta-dot">·</span>
+          <span class="meta-text">{{ (paper as any).year }}</span>
+        </template>
+      </div>
+    </div>
+
+    <div v-if="showAbstract && (abstractText || summaryFields.length)" class="card-body" @click.stop>
+      <button class="expand-btn" @click.stop="expanded = !expanded">
+        <NIcon :size="14" :style="{ transform: expanded ? 'rotate(180deg)' : '', transition: 'transform 0.25s ease' }">
+          <ChevronDownOutline />
+        </NIcon>
+        <span>{{ expanded ? '收起摘要' : '展开摘要' }}</span>
+      </button>
+
+      <transition name="expand">
+        <div v-if="expanded" class="expand-content">
+          <div v-if="summaryFields.length" class="summary-grid">
+            <div v-for="field in summaryFields" :key="field.label" class="summary-item">
+              <span class="summary-label">{{ field.label }}</span>
+              <p class="summary-text">{{ field.value }}</p>
+            </div>
+          </div>
+          <p v-else-if="abstractText" class="abstract-text">{{ abstractText }}</p>
+        </div>
+      </transition>
+    </div>
+
+    <div class="card-footer" @click.stop>
+      <TagButtonGroup
+        :tag-type="(paper as any).tag_type"
+        size="small"
+        @tag="handleTag"
+        @remove="handleRemove"
+      />
+      <div class="card-links">
+        <NButton v-if="(paper as any).pdf_url" quaternary size="tiny" tag="a" :href="(paper as any).pdf_url" target="_blank" @click.stop>
+          <template #icon><NIcon :size="16" :component="DocumentOutline" /></template>
+        </NButton>
+        <NButton v-if="(paper as any).url" quaternary size="tiny" tag="a" :href="(paper as any).url" target="_blank" @click.stop>
+          <template #icon><NIcon :size="16" :component="OpenOutline" /></template>
+        </NButton>
+      </div>
+    </div>
+  </NCard>
+</template>
+
 <style scoped>
 .paper-card {
-  margin-bottom: 16px;
-  border-radius: 12px;
+  border-radius: 12px !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #e2e8f0 !important;
 }
-.score-badge {
-  font-weight: 700;
-  color: #1e293b;
-  font-size: 14px;
+
+.paper-card:hover {
+  border-color: #bfdbfe !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06) !important;
+  transform: translateY(-1px);
 }
-.authors {
-  font-size: 13px;
-  color: #64748b;
-  margin-bottom: 12px;
+
+.paper-card.compact {
+  margin-bottom: 0;
 }
-.abstract-section {
-  color: #334155;
-  font-size: 14px;
-  line-height: 1.6;
+
+.card-top {
+  margin-bottom: 4px;
 }
-.cn-summary {
+
+.card-title-row {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.paper-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0;
+  flex: 1;
+  color: #0f172a;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-score {
+  flex-shrink: 0;
+}
+
+.score-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.card-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.meta-text {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.meta-dot {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.card-body {
+  border-top: 1px solid #e2e8f0;
+  margin-top: 12px;
+  padding-top: 8px;
+}
+
+.expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.expand-btn:hover {
+  background: #eff6ff;
+}
+
+.expand-content {
+  margin-top: 8px;
+}
+
+.summary-grid {
+  display: grid;
   gap: 8px;
-  background-color: #f8fafc;
-  padding: 12px;
-  border-radius: 8px;
-  border-left: 4px solid #3b82f6;
 }
+
 .summary-item {
-  margin-bottom: 2px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border-left: 3px solid #2563eb;
 }
-.abstract-en {
+
+.summary-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1d4ed8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.summary-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #334155;
+  margin: 0;
+}
+
+.abstract-text {
+  font-size: 13px;
+  line-height: 1.7;
   color: #475569;
-  font-style: italic;
+  margin: 0;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
 }
-.footer-row {
+
+.card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.card-links {
+  display: flex;
+  gap: 2px;
+}
+
+.expand-enter-active,
+.expand-leave-active {
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+}
+
+.expand-enter-to,
+.expand-leave-from {
+  opacity: 1;
+  max-height: 500px;
+}
+
+@media (max-width: 768px) {
+  .paper-title {
+    font-size: 14px;
+  }
+
+  .card-title-row {
+    gap: 10px;
+  }
 }
 </style>

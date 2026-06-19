@@ -1,55 +1,38 @@
-import { defineStore } from 'pinia';
-import { ref } from 'vue';
-import { authApi } from '../api/auth';
-import type { User } from '../types';
+import { ref } from 'vue'
+import { defineStore } from 'pinia'
+import type { User } from '@/types'
+import * as authApi from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<User | null>(null);
-  const loading = ref(false);
-  const initialized = ref(false);
+  const user = ref<User | null>(null)
+  const loading = ref(false)
+  const initialized = ref(false)
 
   async function fetchUser() {
-    loading.value = true;
     try {
-      const res = await authApi.me();
-      user.value = res.data;
-      return res.data;
-    } catch (err) {
-      user.value = null;
-      throw err;
+      const { data } = await authApi.getMe()
+      user.value = data
+    } catch {
+      user.value = null
     } finally {
-      loading.value = false;
-      initialized.value = true;
+      initialized.value = true
     }
   }
 
   async function login(username: string, password: string) {
-    loading.value = true;
+    loading.value = true
     try {
-      await authApi.login(username, password);
-      // Fetch user profile after successful login
-      return await fetchUser();
+      await authApi.login(username, password)
+      await fetchUser()
     } finally {
-      loading.value = false;
+      loading.value = false
     }
   }
 
   async function logout() {
-    loading.value = true;
-    try {
-      await authApi.logout();
-    } finally {
-      user.value = null;
-      loading.value = false;
-    }
+    await authApi.logout()
+    user.value = null
   }
 
-  return {
-    user,
-    loading,
-    initialized,
-    fetchUser,
-    login,
-    logout,
-  };
-});
+  return { user, loading, initialized, fetchUser, login, logout }
+})

@@ -1,364 +1,408 @@
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useMessage, NCard, NText, NSpace, NTag, NButton, NCollapse, NCollapseItem, NIcon, NSpin, NDivider } from 'naive-ui'
+import { ArrowBackOutline, DocumentOutline, OpenOutline, CopyOutline, PeopleOutline, CalendarOutline, LinkOutline } from '@vicons/ionicons5'
+import TagButtonGroup from '@/components/TagButtonGroup.vue'
+import ScoreRing from '@/components/ScoreRing.vue'
+import * as papersApi from '@/api/papers'
+import type { Paper, TagType } from '@/types'
+
+const route = useRoute()
+const router = useRouter()
+const msg = useMessage()
+const loading = ref(true)
+const paper = ref<Paper | null>(null)
+
+const scoreItems = [
+  { key: 'keyword_score', label: '关键词' },
+  { key: 'personal_score', label: '个性化' },
+  { key: 'prefilter_score', label: '预筛' },
+  { key: 'final_score', label: '综合' },
+]
+
+const summaryLabels: Record<string, string> = {
+  core_issue: '核心问题',
+  innovation: '创新点',
+  key_method: '关键方法',
+  experiment_highlights: '实验亮点',
+  recommendation_reason: '推荐理由',
+}
+
+async function fetchPaper() {
+  loading.value = true
+  try {
+    const { data } = await papersApi.getPaper(Number(route.params.id))
+    paper.value = data
+  } catch {
+    msg.error('加载失败')
+    router.push('/papers')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleTag(type: TagType) {
+  if (!paper.value) return
+  try {
+    await papersApi.addTag(paper.value.id, type)
+    paper.value = { ...paper.value, tag_type: type } as any
+    msg.success('已标记')
+  } catch {
+    msg.error('标记失败')
+  }
+}
+
+async function handleRemoveTag() {
+  if (!paper.value) return
+  try {
+    await papersApi.removeTag(paper.value.id)
+    paper.value = { ...paper.value, tag_type: null } as any
+    msg.success('已取消')
+  } catch {
+    msg.error('取消失败')
+  }
+}
+
+function copyId() {
+  if (paper.value) {
+    navigator.clipboard.writeText(String(paper.value.id))
+    msg.success('已复制 ID')
+  }
+}
+
+onMounted(fetchPaper)
+</script>
+
 <template>
-  <div class="paper-detail-view">
-    <n-spin :show="loading">
-      <div v-if="error" class="error-container">
-        <n-result status="500" title="无法加载论文" description="论文不存在，或服务器发生错误">
-          <template #footer>
-            <n-button @click="goBack">返回上一页</n-button>
-          </template>
-        </n-result>
-      </div>
+  <div>
+    <NButton quaternary @click="router.back()" class="back-btn">
+      <template #icon><NIcon :component="ArrowBackOutline" /></template>
+      返回
+    </NButton>
 
-      <div v-else-if="paper" class="detail-container">
-        <!-- Header -->
-        <div class="detail-header">
-          <n-button secondary @click="goBack" style="margin-bottom: 12px;">
-            &larr; 返回
-          </n-button>
-          
-          <h1 class="title-cn">{{ paper.summary_cn?.title_cn || paper.title }}</h1>
-          <h3 v-if="paper.summary_cn?.title_cn" class="title-en">{{ paper.title }}</h3>
-          
-          <div class="authors">
-            <strong>作者:</strong> {{ formatAuthors(paper.authors) }}
-          </div>
+    <div v-if="loading" class="loading-state">
+      <NSpin size="large" />
+    </div>
 
-          <n-space style="margin-top: 12px;">
-            <n-tag :type="bucketType">{{ bucketLabel }}</n-tag>
-            <n-tag v-if="venueLabel" type="warning">{{ venueLabel }}</n-tag>
-            <n-tag v-if="paper.arxiv_id" type="info">arXiv: {{ paper.arxiv_id }}</n-tag>
-            <n-tag v-if="paper.doi" type="success">DOI: {{ paper.doi }}</n-tag>
-            <n-tag v-if="paper.citation_count !== undefined" type="default">
-              引用数: {{ paper.citation_count }}
-            </n-tag>
-          </n-space>
+    <template v-else-if="paper">
+      <div class="detail-grid">
+        <div class="detail-main">
+          <NCard class="main-card" :bordered="true">
+            <h1 class="paper-title">{{ paper.title }}</h1>
+
+            <div class="paper-meta">
+              <NTag v-if="paper.venue" type="success" size="small" :bordered="false" round>{{ paper.venue }}</NTag>
+              <NTag v-else-if="paper.venue_hint" type="warning" size="small" :bordered="false" round>{{ paper.venue_hint }}（录用指向）</NTag>
+              <NTag v-if="paper.bucket" size="small" :bordered="false" round :type="paper.bucket === 'venue' ? 'info' : 'success'">
+                {{ paper.bucket === 'venue' ? '顶会桶' : 'arXiv 桶' }}
+              </NTag>
+            </div>
+
+            <div class="authors-row">
+              <NIcon :size="14" color="#9ca3af"><PeopleOutline /></NIcon>
+              <span>{{ paper.authors?.join(', ') || '未知作者' }}</span>
+            </div>
+
+            <NDivider />
+
+            <div v-if="paper.summary_cn && typeof paper.summary_cn === 'object'" class="summary-section">
+              <h3 class="section-title">AI 结构化分析</h3>
+              <div class="summary-grid">
+                <div v-for="(label, key) in summaryLabels" :key="key" class="summary-item" v-show="(paper.summary_cn as any)?.[key]">
+                  <span class="summary-label">{{ label }}</span>
+                  <p class="summary-text">{{ (paper.summary_cn as any)[key] }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="paper.llm_reason" class="llm-section">
+              <h3 class="section-title">LLM 推荐理由</h3>
+              <div class="llm-box">
+                <p>{{ paper.llm_reason }}</p>
+              </div>
+            </div>
+
+            <NCollapse class="abstract-collapse">
+              <NCollapseItem title="中文摘要" name="cn">
+                <p class="abstract-text">{{ paper.abstract_cn || '暂无' }}</p>
+              </NCollapseItem>
+              <NCollapseItem title="英文摘要" name="en">
+                <p class="abstract-text">{{ paper.abstract_en || '暂无' }}</p>
+              </NCollapseItem>
+            </NCollapse>
+          </NCard>
         </div>
 
-        <!-- Main Body split: Left summary/abstracts, Right Scores/Actions -->
-        <n-grid cols="1 s:1 m:3 l:3" responsive="screen" :x-gap="16" :y-gap="16">
-          <!-- Left Main Content Column -->
-          <n-grid-item span="2">
-            <n-space vertical size="large">
-              <!-- CN Summary section if present -->
-              <n-card v-if="hasSummary" title="💡 AI 结构化精读" bordered>
-                <n-collapse :default-expanded-names="['core', 'method', 'innovation', 'highlight', 'reason']">
-                  <n-collapse-item title="核心问题 (Core Issue)" name="core">
-                    <p class="summary-text">{{ summaryDetails?.core_issue }}</p>
-                  </n-collapse-item>
-                  <n-collapse-item title="创新点 (Innovation)" name="innovation">
-                    <p class="summary-text">{{ summaryDetails?.innovation }}</p>
-                  </n-collapse-item>
-                  <n-collapse-item title="关键方法 (Key Method)" name="method">
-                    <p class="summary-text">{{ summaryDetails?.key_method }}</p>
-                  </n-collapse-item>
-                  <n-collapse-item title="实验亮点 (Experiment Highlights)" name="highlight">
-                    <p class="summary-text">{{ summaryDetails?.experiment_highlights }}</p>
-                  </n-collapse-item>
-                  <n-collapse-item title="推荐理由 (Recommendation Reason)" name="reason">
-                    <p class="summary-text">{{ summaryDetails?.recommendation_reason }}</p>
-                  </n-collapse-item>
-                </n-collapse>
-              </n-card>
+        <div class="detail-side">
+          <NCard class="side-card" :bordered="true">
+            <h3 class="side-title">评分详情</h3>
+            <div class="scores-row">
+              <ScoreRing
+                v-for="item in scoreItems"
+                :key="item.key"
+                :score="(paper as any)[item.key] || 0"
+                :label="item.label"
+                :size="56"
+              />
+            </div>
+            <div v-if="paper.llm_score !== null" class="llm-score">
+              <span class="llm-score-label">LLM 评分</span>
+              <span class="llm-score-value">{{ paper.llm_score?.toFixed(1) }} / 10</span>
+            </div>
+          </NCard>
 
-              <!-- LLM reason if present -->
-              <n-card v-if="paper.llm_reason" title="🤖 LLM 研判原因" bordered>
-                <p style="white-space: pre-wrap; line-height: 1.6; color: #374151;">
-                  {{ paper.llm_reason }}
-                </p>
-              </n-card>
+          <NCard class="side-card" :bordered="true">
+            <h3 class="side-title">反馈</h3>
+            <TagButtonGroup
+              :tag-type="(paper as any).tag_type"
+              @tag="handleTag"
+              @remove="handleRemoveTag"
+            />
+          </NCard>
 
-              <!-- Translation/CN Abstract -->
-              <n-card title="🇨🇳 中文摘要" bordered>
-                <p class="abstract-text">
-                  {{ paper.abstract_cn || '暂无中文翻译抽象' }}
-                </p>
-              </n-card>
+          <NCard class="side-card" :bordered="true">
+            <h3 class="side-title">链接</h3>
+            <div class="link-list">
+              <NButton v-if="paper.pdf_url" block secondary tag="a" :href="paper.pdf_url" target="_blank">
+                <template #icon><NIcon :component="DocumentOutline" /></template>
+                PDF
+              </NButton>
+              <NButton v-if="paper.url" block secondary tag="a" :href="paper.url" target="_blank">
+                <template #icon><NIcon :component="OpenOutline" /></template>
+                原文
+              </NButton>
+              <NButton v-if="paper.arxiv_id" block secondary tag="a" :href="`https://arxiv.org/abs/${paper.arxiv_id}`" target="_blank">
+                <template #icon><NIcon :component="LinkOutline" /></template>
+                arXiv: {{ paper.arxiv_id }}
+              </NButton>
+            </div>
+          </NCard>
 
-              <!-- English Abstract -->
-              <n-card title="🇬🇧 英文摘要 (Abstract)" bordered>
-                <p class="abstract-text english">
-                  {{ paper.abstract_en || 'No abstract text available.' }}
-                </p>
-              </n-card>
-
-              <!-- Paper comments / metadata -->
-              <n-card v-if="paper.comments" title="💬 arXiv 备注 (Comments)" bordered>
-                <p style="font-family: monospace; font-size: 13px; color: #4b5563;">
-                  {{ paper.comments }}
-                </p>
-              </n-card>
-            </n-space>
-          </n-grid-item>
-
-          <!-- Right Sidebar Column -->
-          <n-grid-item span="1">
-            <n-space vertical size="large">
-              <!-- Score breakdown component -->
-              <n-card title="🎯 评分详情" bordered>
-                <score-bar
-                  :final-score="paper.final_score"
-                  :keyword-score="paper.keyword_score"
-                  :personal-score="paper.personal_score"
-                  :prefilter-score="paper.prefilter_score"
-                  :llm-score="paper.llm_score"
-                />
-              </n-card>
-
-              <!-- User actions and feedback -->
-              <n-card title="🛠️ 论文操作" bordered>
-                <n-space vertical size="medium">
-                  <div class="feedback-section">
-                    <div style="font-weight: 500; font-size: 14px; margin-bottom: 8px; color: #475569;">
-                      用户偏好标记:
-                    </div>
-                    <n-button-group style="width: 100%;">
-                      <n-button
-                        style="width: 33.3%;"
-                        :type="currentTag === 'interested' ? 'success' : 'default'"
-                        secondary
-                        @click="toggleTag('interested')"
-                      >
-                        感兴趣
-                      </n-button>
-                      <n-button
-                        style="width: 33.3%;"
-                        :type="currentTag === 'not_interested' ? 'error' : 'default'"
-                        secondary
-                        @click="toggleTag('not_interested')"
-                      >
-                        不感兴趣
-                      </n-button>
-                      <n-button
-                        style="width: 33.3%;"
-                        :type="currentTag === 'read_later' ? 'info' : 'default'"
-                        secondary
-                        @click="toggleTag('read_later')"
-                      >
-                        稍后读
-                      </n-button>
-                    </n-button-group>
-                  </div>
-
-                  <n-divider style="margin: 12px 0;" />
-
-                  <div class="link-section">
-                    <n-space vertical>
-                      <n-button
-                        v-if="paper.pdf_url"
-                        type="primary"
-                        block
-                        tag="a"
-                        :href="paper.pdf_url"
-                        target="_blank"
-                      >
-                        📄 打开 PDF 链接
-                      </n-button>
-                      <n-button
-                        v-if="paper.url"
-                        secondary
-                        block
-                        tag="a"
-                        :href="paper.url"
-                        target="_blank"
-                      >
-                        🔗 打开 网页 链接
-                      </n-button>
-                    </n-space>
-                  </div>
-
-                  <div class="meta-section" style="font-size: 12px; color: #64748b; margin-top: 12px;">
-                    <div><strong>抓取来源:</strong> {{ paper.source }}</div>
-                    <div><strong>录用年份:</strong> {{ paper.year }} 年</div>
-                    <div v-if="paper.created_at">
-                      <strong>收录日期:</strong> {{ formatDate(paper.created_at) }}
-                    </div>
-                    <div><strong>推送状态:</strong> {{ paper.pushed ? '已推送' : '未推送' }}</div>
-                  </div>
-                </n-space>
-              </n-card>
-            </n-space>
-          </n-grid-item>
-        </n-grid>
+          <NCard class="side-card" :bordered="true">
+            <h3 class="side-title">元数据</h3>
+            <div class="meta-list">
+              <div class="meta-row">
+                <span class="meta-key">ID</span>
+                <span class="meta-val" @click="copyId" style="cursor: pointer;">{{ paper.id }} <NIcon :size="12" :component="CopyOutline" /></span>
+              </div>
+              <div class="meta-row" v-if="paper.doi">
+                <span class="meta-key">DOI</span>
+                <span class="meta-val">{{ paper.doi }}</span>
+              </div>
+              <div class="meta-row" v-if="paper.arxiv_id">
+                <span class="meta-key">arXiv</span>
+                <span class="meta-val">{{ paper.arxiv_id }}</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-key">引用数</span>
+                <span class="meta-val">{{ paper.citation_count }}</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-key">入库时间</span>
+                <span class="meta-val">{{ paper.created_at?.split('T')[0] || 'N/A' }}</span>
+              </div>
+            </div>
+          </NCard>
+        </div>
       </div>
-    </n-spin>
+    </template>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import type { Paper } from '../types';
-import { papersApi } from '../api/papers';
-import ScoreBar from '../components/ScoreBar.vue';
-import { useMessage } from 'naive-ui';
-
-const route = useRoute();
-const router = useRouter();
-const message = useMessage();
-
-const paperId = Number(route.params.id);
-const paper = ref<Paper | null>(null);
-const loading = ref(false);
-const error = ref(false);
-
-const currentTag = ref<'interested' | 'not_interested' | 'read_later' | null>(null);
-
-onMounted(() => {
-  fetchPaper();
-});
-
-async function fetchPaper() {
-  loading.value = true;
-  error.value = false;
-  try {
-    const res = await papersApi.get(paperId);
-    paper.value = res.data;
-    currentTag.value = res.data.tag_type || null;
-  } catch (err) {
-    error.value = true;
-    message.error('加载论文详情失败');
-  } finally {
-    loading.value = false;
-  }
-}
-
-const bucketType = computed(() => {
-  if (paper.value?.bucket === 'venue') return 'info';
-  if (paper.value?.bucket === 'arxiv') return 'default';
-  return 'warning';
-});
-
-const bucketLabel = computed(() => {
-  if (paper.value?.bucket === 'venue') return '期刊会议';
-  if (paper.value?.bucket === 'arxiv') return 'arXiv 预印本';
-  return '未归桶';
-});
-
-const venueLabel = computed(() => {
-  if (paper.value?.venue) {
-    return `已见刊 ${paper.value.venue}`;
-  }
-  if (paper.value?.venue_hint) {
-    return `录用指向 ${paper.value.venue_hint}`;
-  }
-  return null;
-});
-
-const hasSummary = computed(() => {
-  return !!(
-    paper.value?.summary_cn &&
-    paper.value?.summary_cn.summary_cn
-  );
-});
-
-const summaryDetails = computed(() => {
-  return paper.value?.summary_cn?.summary_cn;
-});
-
-function formatAuthors(authors: any): string {
-  if (!authors) return '';
-  if (Array.isArray(authors)) {
-    return authors.join(', ');
-  }
-  try {
-    const parsed = typeof authors === 'string' ? JSON.parse(authors) : authors;
-    if (Array.isArray(parsed)) {
-      return parsed.join(', ');
-    }
-  } catch (e) {}
-  return String(authors);
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return '';
-  return dateStr.split('T')[0];
-}
-
-function goBack() {
-  // If we can, return to router history, otherwise fallback to list
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/digest');
-  }
-}
-
-async function toggleTag(tagType: 'interested' | 'not_interested' | 'read_later') {
-  if (!paper.value) return;
-  const targetTag = currentTag.value === tagType ? null : tagType;
-  
-  try {
-    if (targetTag) {
-      await papersApi.tag(paper.value.id, targetTag);
-      currentTag.value = targetTag;
-      message.success(`已标记为“${getTagName(targetTag)}”`);
-    } else {
-      await papersApi.removeTag(paper.value.id);
-      currentTag.value = null;
-      message.success('已取消标记');
-    }
-  } catch (e) {
-    message.error('标记操作失败');
-  }
-}
-
-function getTagName(tag: string): string {
-  if (tag === 'interested') return '感兴趣';
-  if (tag === 'not_interested') return '不感兴趣';
-  if (tag === 'read_later') return '稍后读';
-  return tag;
-}
-</script>
-
 <style scoped>
-.paper-detail-view {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-.detail-header {
-  background-color: white;
-  padding: 24px;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  margin-bottom: 16px;
-  border: 1px solid #e2e8f0;
-}
-.title-cn {
-  font-size: 24px;
-  color: #0f172a;
-  margin: 0 0 8px;
-  line-height: 1.4;
-}
-.title-en {
-  font-size: 18px;
-  color: #475569;
-  margin: 0 0 12px;
+.back-btn {
+  margin-bottom: 20px;
   font-weight: 500;
-  line-height: 1.4;
 }
-.authors {
-  color: #4b5563;
-  font-size: 14px;
-}
-.summary-text {
-  line-height: 1.6;
-  color: #374151;
-}
-.abstract-text {
-  line-height: 1.7;
-  color: #374151;
-  text-align: justify;
-}
-.abstract-text.english {
-  color: #4b5563;
-  font-style: italic;
-}
-.error-container {
+
+.loading-state {
   display: flex;
   justify-content: center;
+  padding: 100px 0;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 24px;
+  align-items: start;
+}
+
+.main-card {
+  border-radius: 16px !important;
+  border: 1px solid #f0f0f0 !important;
+}
+
+.paper-title {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.4;
+  margin: 0 0 12px;
+  color: #111827;
+  letter-spacing: -0.3px;
+}
+
+.paper-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.authors-row {
+  display: flex;
   align-items: center;
-  min-height: 400px;
-  background-color: white;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 14px;
+}
+
+.summary-section {
+  margin-bottom: 24px;
+}
+
+.summary-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.summary-item {
+  padding: 12px 14px;
+  background: #fafbfc;
   border-radius: 12px;
+  border-left: 3px solid #6366f1;
+}
+
+.summary-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6366f1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.summary-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+  margin: 0;
+}
+
+.llm-section {
+  margin-bottom: 24px;
+}
+
+.llm-box {
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-radius: 12px;
+  border-left: 3px solid #f59e0b;
+}
+
+.llm-box p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #92400e;
+  margin: 0;
+}
+
+.abstract-collapse {
+  margin-top: 8px;
+}
+
+.abstract-text {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #4b5563;
+  margin: 0;
+}
+
+.detail-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.side-card {
+  border-radius: 16px !important;
+  border: 1px solid #f0f0f0 !important;
+}
+
+.side-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 14px;
+}
+
+.scores-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.llm-score {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.llm-score-label {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.llm-score-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #6366f1;
+}
+
+.link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.meta-key {
+  color: #9ca3af;
+}
+
+.meta-val {
+  color: #374151;
+  font-weight: 500;
+}
+
+@media (max-width: 1024px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

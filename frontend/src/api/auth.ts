@@ -1,14 +1,13 @@
-import client from './client';
-import type { User } from '../types';
+import client from './client'
 
-export const authApi = {
-  login(username: string, password: string) {
-    return client.post('/api/auth/login', { username, password });
-  },
-  logout() {
-    return client.post('/api/auth/logout');
-  },
-  me() {
-    return client.get<User>('/api/auth/me');
-  },
-};
+export function login(username: string, password: string) {
+  return client.post('/api/auth/login', { username, password })
+}
+
+export function logout() {
+  return client.post('/api/auth/logout')
+}
+
+export function getMe() {
+  return client.get('/api/auth/me')
+}

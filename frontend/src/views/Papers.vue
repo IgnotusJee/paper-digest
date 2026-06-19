@@ -1,228 +1,287 @@
-<template>
-  <div class="papers-view">
-    <!-- Filters & Settings -->
-    <n-card class="filter-card" size="small" style="margin-bottom: 16px;">
-      <n-space justify="space-between" align="center" wrap>
-        <n-space align="center">
-          <span>分桶过滤:</span>
-          <n-select
-            v-model:value="filterParams.bucket"
-            :options="bucketOptions"
-            placeholder="全部"
-            clearable
-            style="width: 150px;"
-            @update:value="handleFilterChange"
-          />
-        </n-space>
-        
-        <n-space align="center">
-          <span>排序字段:</span>
-          <n-select
-            v-model:value="filterParams.sort"
-            :options="sortOptions"
-            style="width: 150px;"
-            @update:value="handleFilterChange"
-          />
-          <n-select
-            v-model:value="filterParams.order"
-            :options="orderOptions"
-            style="width: 100px;"
-            @update:value="handleFilterChange"
-          />
-        </n-space>
-      </n-space>
-    </n-card>
-
-    <!-- Table -->
-    <n-spin :show="loading">
-      <n-card bordered>
-        <div v-if="papers.length === 0" style="padding: 40px 0;">
-          <n-empty description="没有找到论文" />
-        </div>
-        
-        <div v-else>
-          <n-list hoverable clickable>
-            <n-list-item v-for="paper in papers" :key="paper.id" @click="viewDetail(paper.id)">
-              <template #suffix>
-                <div style="text-align: right; min-width: 100px;">
-                  <div style="font-weight: bold; font-size: 15px; color: #0f172a;">
-                    {{ paper.final_score.toFixed(2) }} 分
-                  </div>
-                  <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
-                    关键词: {{ paper.keyword_score.toFixed(2) }}
-                  </div>
-                </div>
-              </template>
-              
-              <n-thing>
-                <template #title>
-                  <span style="font-weight: 600; color: #1e293b;">
-                    {{ paper.summary_cn?.title_cn || paper.title }}
-                  </span>
-                </template>
-                
-                <template #description>
-                  <span style="font-size: 13px; color: #64748b;">
-                    {{ formatAuthors(paper.authors) }}
-                  </span>
-                </template>
-
-                <div style="margin-top: 8px;">
-                  <n-space size="small">
-                    <n-tag :type="getBucketType(paper.bucket)" size="small">
-                      {{ getBucketLabel(paper.bucket) }}
-                    </n-tag>
-                    <n-tag v-if="paper.venue" type="warning" size="small">
-                      {{ paper.venue }}
-                    </n-tag>
-                    <n-tag v-else-if="paper.venue_hint" type="warning" size="small">
-                      {{ paper.venue_hint }}
-                    </n-tag>
-                    <span style="font-size: 12px; color: #94a3b8; margin-left: 8px;">
-                      收录于: {{ formatDate(paper.created_at) }}
-                    </span>
-                  </n-space>
-                </div>
-              </n-thing>
-            </n-list-item>
-          </n-list>
-
-          <!-- Pagination -->
-          <div class="pagination-row">
-            <n-pagination
-              v-model:page="filterParams.page"
-              v-model:page-size="filterParams.size"
-              :item-count="totalItems"
-              :page-sizes="[10, 20, 50, 100]"
-              show-size-picker
-              style="margin-top: 20px; justify-content: flex-end;"
-              @update:page="handlePageChange"
-              @update:page-size="handlePageSizeChange"
-            />
-          </div>
-        </div>
-      </n-card>
-    </n-spin>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import type { Paper } from '../types';
-import { papersApi } from '../api/papers';
-import type { ListPapersParams } from '../api/papers';
-import { useMessage } from 'naive-ui';
+import { computed, ref, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useMessage, NSelect, NPagination, NSpin, NCard, NTag, NIcon } from 'naive-ui'
+import { DocumentTextOutline, FunnelOutline } from '@vicons/ionicons5'
+import PageHeader from '@/components/PageHeader.vue'
+import PaperCard from '@/components/PaperCard.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import * as papersApi from '@/api/papers'
+import type { PaperListItem, TagType } from '@/types'
 
-const router = useRouter();
-const message = useMessage();
+const router = useRouter()
+const msg = useMessage()
+const loading = ref(true)
+const papers = ref<PaperListItem[]>([])
+const total = ref(0)
+const page = ref(1)
+const pages = ref(1)
 
-const papers = ref<Paper[]>([]);
-const totalItems = ref(0);
-const loading = ref(false);
-
-const filterParams = ref<Required<ListPapersParams>>({
-  page: 1,
-  size: 20,
-  sort: 'created_at',
-  order: 'desc',
-  bucket: null
-});
+const bucket = ref<string | null>(null)
+const sort = ref('created_at')
+const order = ref('desc')
 
 const bucketOptions = [
-  { label: '全部分桶', value: null },
-  { label: '期刊会议 (venue)', value: 'venue' },
-  { label: 'arXiv 预印本 (arxiv)', value: 'arxiv' }
-];
+  { label: '全部来源', value: '' },
+  { label: '顶会', value: 'venue' },
+  { label: 'arXiv', value: 'arxiv' },
+]
 
 const sortOptions = [
-  { label: '收录时间', value: 'created_at' },
-  { label: '综合得分', value: 'final_score' },
-  { label: '关键词打分', value: 'keyword_score' }
-];
+  { label: '入库时间', value: 'created_at' },
+  { label: '综合分数', value: 'final_score' },
+  { label: '关键词分数', value: 'keyword_score' },
+]
 
 const orderOptions = [
   { label: '降序', value: 'desc' },
-  { label: '升序', value: 'asc' }
-];
+  { label: '升序', value: 'asc' },
+]
 
-onMounted(() => {
-  fetchPapers();
-});
+const activeFilterCount = computed(() => {
+  let count = 0
+  if (bucket.value) count += 1
+  if (sort.value !== 'created_at') count += 1
+  if (order.value !== 'desc') count += 1
+  return count
+})
 
 async function fetchPapers() {
-  loading.value = true;
+  loading.value = true
   try {
-    const res = await papersApi.list(filterParams.value);
-    papers.value = res.data.items;
-    totalItems.value = res.data.total;
-  } catch (err) {
-    message.error('获取论文列表失败');
+    const { data } = await papersApi.listPapers({
+      page: page.value,
+      size: 20,
+      sort: sort.value,
+      order: order.value,
+      bucket: bucket.value || undefined,
+    })
+    papers.value = data.items
+    total.value = data.total
+    pages.value = data.pages
+  } catch {
+    msg.error('加载失败')
   } finally {
-    loading.value = false;
+    loading.value = false
   }
 }
 
-function handleFilterChange() {
-  filterParams.value.page = 1;
-  fetchPapers();
-}
-
-function handlePageChange() {
-  fetchPapers();
-}
-
-function handlePageSizeChange() {
-  filterParams.value.page = 1;
-  fetchPapers();
-}
-
-function viewDetail(id: number) {
-  router.push(`/papers/${id}`);
-}
-
-function formatAuthors(authors: any): string {
-  if (!authors) return '';
-  if (Array.isArray(authors)) {
-    return authors.join(', ');
-  }
+async function handleTag(paperId: number, type: TagType) {
   try {
-    const parsed = typeof authors === 'string' ? JSON.parse(authors) : authors;
-    if (Array.isArray(parsed)) {
-      return parsed.join(', ');
-    }
-  } catch (e) {}
-  return String(authors);
+    await papersApi.addTag(paperId, type)
+    msg.success('已标记')
+  } catch {
+    msg.error('标记失败')
+  }
 }
 
-function formatDate(dateStr: string): string {
-  if (!dateStr) return '';
-  return dateStr.split('T')[0];
+async function handleRemoveTag(paperId: number) {
+  try {
+    await papersApi.removeTag(paperId)
+    msg.success('已取消')
+  } catch {
+    msg.error('取消失败')
+  }
 }
 
-function getBucketType(bucket: string | null) {
-  if (bucket === 'venue') return 'info';
-  if (bucket === 'arxiv') return 'default';
-  return 'warning';
+function goToDetail(paperId: number) {
+  router.push(`/papers/${paperId}`)
 }
 
-function getBucketLabel(bucket: string | null) {
-  if (bucket === 'venue') return '期刊会议';
-  if (bucket === 'arxiv') return 'arXiv';
-  return '未归桶';
-}
+watch([bucket, sort, order], () => {
+  page.value = 1
+  fetchPapers()
+})
+
+onMounted(fetchPapers)
 </script>
 
+<template>
+  <div>
+    <PageHeader title="论文库" description="浏览所有已入库论文，按来源和排序方式快速筛读。">
+      <template #actions>
+        <div class="header-metrics">
+          <span class="total-badge">共 {{ total }} 篇</span>
+          <NTag v-if="activeFilterCount" round :bordered="false" class="filter-tag">
+            {{ activeFilterCount }} 个筛选条件
+          </NTag>
+        </div>
+      </template>
+    </PageHeader>
+
+    <NCard class="filter-card" :bordered="false">
+      <div class="filter-head">
+        <div class="filter-title-group">
+          <div class="filter-icon">
+            <NIcon :size="18"><FunnelOutline /></NIcon>
+          </div>
+          <div>
+            <h3 class="filter-title">筛选与排序</h3>
+            <p class="filter-copy">按来源、时间和分数切换阅读顺序。</p>
+          </div>
+        </div>
+        <div class="library-badge">
+          <NIcon :size="16"><DocumentTextOutline /></NIcon>
+          Research archive
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <NSelect v-model:value="bucket" :options="bucketOptions" placeholder="来源" clearable class="filter-select" />
+        <NSelect v-model:value="sort" :options="sortOptions" class="filter-select" />
+        <NSelect v-model:value="order" :options="orderOptions" class="filter-select filter-select-small" />
+      </div>
+    </NCard>
+
+    <div v-if="loading" class="loading-state">
+      <NSpin size="large" />
+    </div>
+
+    <template v-else>
+      <div v-if="papers.length" class="paper-list">
+        <PaperCard
+          v-for="paper in papers"
+          :key="paper.id"
+          :paper="paper"
+          @tag="handleTag"
+          @remove="handleRemoveTag"
+          @click="goToDetail"
+        />
+      </div>
+      <EmptyState v-else description="暂无论文" />
+
+      <div v-if="pages > 1" class="pagination-wrapper">
+        <NPagination v-model:page="page" :page-count="pages" @update:page="fetchPapers" />
+      </div>
+    </template>
+  </div>
+</template>
+
 <style scoped>
-.papers-view {
+.header-metrics {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.total-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+}
+
+.filter-tag {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+}
+
+.filter-card {
+  margin-bottom: 20px;
+  border-radius: 12px !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+}
+
+.filter-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.filter-title-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.filter-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  color: #1d4ed8;
+  flex-shrink: 0;
+}
+
+.filter-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.filter-copy {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.library-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  width: 160px;
+}
+
+.filter-select-small {
+  width: 120px;
+}
+
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 100px 0;
+}
+
+.paper-list {
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
-.filter-card {
-  border-radius: 8px;
-}
-.pagination-row {
+
+.pagination-wrapper {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
+  margin-top: 28px;
+}
+
+@media (max-width: 768px) {
+  .filter-head {
+    flex-direction: column;
+  }
+
+  .filter-select,
+  .filter-select-small {
+    width: 100%;
+  }
 }
 </style>

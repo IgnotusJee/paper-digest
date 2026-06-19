@@ -1,202 +1,287 @@
+<script setup lang="ts">
+import { computed, ref, onMounted } from 'vue'
+import { useMessage, NCard, NForm, NFormItem, NInput, NInputNumber, NSelect, NButton, NDivider, NSpin, NTag, NIcon } from 'naive-ui'
+import { SaveOutline, SettingsOutline, SparklesOutline, TimeOutline } from '@vicons/ionicons5'
+import PageHeader from '@/components/PageHeader.vue'
+import SourceQuotaEditor from '@/components/SourceQuotaEditor.vue'
+import * as settingsApi from '@/api/settings'
+import type { SystemConfig, BucketConfig } from '@/types'
+
+const msg = useMessage()
+const loading = ref(true)
+const saving = ref(false)
+const config = ref<SystemConfig | null>(null)
+
+const sourceSummary = computed(() => {
+  const sources = config.value?.sources
+  if (!sources) return ''
+  return `${sources.daily_total} 篇 / ${sources.fill_policy === 'strict' ? 'strict' : 'spillover'}`
+})
+
+async function fetchSettings() {
+  loading.value = true
+  try {
+    const { data } = await settingsApi.getSettings()
+    config.value = data
+  } catch {
+    msg.error('加载失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleSave() {
+  if (!config.value) return
+  saving.value = true
+  try {
+    const { data } = await settingsApi.updateSettings(config.value)
+    config.value = data
+    msg.success('保存成功')
+  } catch (err: any) {
+    msg.error(err.response?.data?.detail || '保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+function handleBucketsUpdate(buckets: BucketConfig[]) {
+  if (config.value) {
+    config.value = { ...config.value, sources: { ...config.value.sources, buckets } }
+  }
+}
+
+onMounted(fetchSettings)
+</script>
+
 <template>
-  <div class="settings-view">
-    <n-spin :show="loading">
-      <div v-if="config" class="settings-container">
-        <n-space vertical size="large">
-          <!-- Source Quota Buckets -->
-          <n-card title="📊 来源配额设置">
-            <n-form label-placement="left" label-width="120px">
-              <n-form-item label="每日推荐总篇数">
-                <n-input-number v-model:value="config.sources.daily_total" :min="1" :max="50" style="width: 150px;" />
-              </n-form-item>
-              <n-form-item label="回填策略 (policy)">
-                <n-select
-                  v-model:value="config.sources.fill_policy"
-                  :options="fillPolicyOptions"
-                  style="width: 200px;"
-                />
-                <div style="font-size: 12px; color: #64748b; margin-left: 12px;">
-                  strict: 宁缺毋滥 (配额不足时不补位)；spillover: 允许其他桶补足总数。
-                </div>
-              </n-form-item>
-              <n-form-item label="超额候选倍数">
-                <n-input-number v-model:value="config.sources.oversample" :min="1" :max="10" style="width: 150px;" />
-              </n-form-item>
-            </n-form>
-            <n-divider />
-            <source-quota-editor :buckets="config.sources.buckets" />
-          </n-card>
+  <div>
+    <PageHeader title="系统设置" description="维护论文来源配额、LLM 成本边界和调度节奏。">
+      <template #actions>
+        <NButton type="primary" :loading="saving" :disabled="loading" @click="handleSave">
+          <template #icon><NIcon :component="SaveOutline" /></template>
+          保存配置
+        </NButton>
+      </template>
+    </PageHeader>
 
-          <!-- Prefilter Scoring Weights -->
-          <n-card title="🎯 预筛权重配置">
-            <div style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
-              第一级预筛选中，各维度打分的加权比重（权重之和无需为 1，系统会自动按比例归一化）。
-            </div>
-            <n-form label-placement="left" label-width="150px">
-              <n-form-item label="关键词匹配权重">
-                <div class="weight-slider-row">
-                  <n-slider v-model:value="config.scoring.prefilter.keyword" :min="0" :max="1.0" :step="0.05" />
-                  <n-input-number v-model:value="config.scoring.prefilter.keyword" :min="0" :max="1.0" :step="0.05" size="small" />
-                </div>
-              </n-form-item>
-              <n-form-item label="个人偏好匹配权重">
-                <div class="weight-slider-row">
-                  <n-slider v-model:value="config.scoring.prefilter.personal" :min="0" :max="1.0" :step="0.05" />
-                  <n-input-number v-model:value="config.scoring.prefilter.personal" :min="0" :max="1.0" :step="0.05" size="small" />
-                </div>
-              </n-form-item>
-              <n-form-item label="时间衰减权重">
-                <div class="weight-slider-row">
-                  <n-slider v-model:value="config.scoring.prefilter.recency" :min="0" :max="1.0" :step="0.05" />
-                  <n-input-number v-model:value="config.scoring.prefilter.recency" :min="0" :max="1.0" :step="0.05" size="small" />
-                </div>
-              </n-form-item>
-              <n-form-item label="来源先验权重">
-                <div class="weight-slider-row">
-                  <n-slider v-model:value="config.scoring.prefilter.source_prior" :min="0" :max="1.0" :step="0.05" />
-                  <n-input-number v-model:value="config.scoring.prefilter.source_prior" :min="0" :max="1.0" :step="0.05" size="small" />
-                </div>
-              </n-form-item>
-            </n-form>
-          </n-card>
+    <div v-if="loading" class="loading-state">
+      <NSpin size="large" />
+    </div>
 
-          <!-- Recommender Centroid config -->
-          <n-card title="🧠 推荐模型门控 (Recommender)">
-            <n-form label-placement="left" label-width="180px">
-              <n-form-item label="质心模式最小正反馈">
-                <n-input-number v-model:value="config.recommender.min_pos_centroid" :min="1" :max="100" />
-              </n-form-item>
-              <n-form-item label="分类模型最小正反馈">
-                <n-input-number v-model:value="config.recommender.min_pos_model" :min="5" :max="500" />
-              </n-form-item>
-              <n-form-item label="分类模型最小负反馈">
-                <n-input-number v-model:value="config.recommender.min_neg_model" :min="5" :max="500" />
-              </n-form-item>
-            </n-form>
-          </n-card>
-
-          <!-- LLM budget/circuits -->
-          <n-card title="🤖 LLM 研排与成本设置">
-            <n-form label-placement="left" label-width="150px">
-              <n-form-item label="LLM 降级链 (chain)">
-                <n-dynamic-tags v-model:value="config.llm.chain" />
-                <template #feedback>
-                  模型降级顺序，例如: deepseek, kimi
-                </template>
-              </n-form-item>
-              
-              <n-form-item label="每日预算上限 (¥)">
-                <n-input-number v-model:value="config.llm.daily_budget" :min="0" :max="10.0" :step="0.05" style="width: 150px;" />
-                <div style="font-size: 12px; color: #64748b; margin-left: 12px;">
-                  当本日 LLM 累计消费超过此限额时，将自动熔断，次日报降级为预筛排序。
-                </div>
-              </n-form-item>
-              
-              <n-form-item label="单次请求上限 (¥)">
-                <n-input-number v-model:value="config.llm.max_cost_per_call" :min="0" :max="2.0" :step="0.01" style="width: 150px;" />
-              </n-form-item>
-              
-              <n-form-item label="精排单批最大篇数">
-                <n-input-number v-model:value="config.llm.batch_size" :min="1" :max="30" style="width: 150px;" />
-              </n-form-item>
-              
-              <n-form-item label="服务连续熔断阈值">
-                <n-input-number v-model:value="config.llm.circuit_threshold" :min="1" :max="10" style="width: 150px;" />
-              </n-form-item>
-              
-              <n-form-item label="熔断冷却时间 (秒)">
-                <n-input-number v-model:value="config.llm.circuit_cooldown_sec" :min="60" :max="3600" :step="60" style="width: 150px;" />
-              </n-form-item>
-            </n-form>
-          </n-card>
-
-          <!-- Scheduler configuration (Read-only representation) -->
-          <n-card title="⏰ 定时任务周期">
-            <n-form label-placement="left" label-width="150px">
-              <n-form-item label="抓取任务 (Cron)">
-                <n-input v-model:value="config.scheduler.fetch_cron" placeholder="例如: 30 */6 * * *" />
-              </n-form-item>
-              <n-form-item label="日报生成与推送 (Cron)">
-                <n-input v-model:value="config.scheduler.digest_cron" placeholder="例如: 0 9 * * *" />
-              </n-form-item>
-            </n-form>
-          </n-card>
-
-          <!-- Actions -->
-          <n-card>
-            <n-space justify="end">
-              <n-button type="primary" size="large" :loading="saveLoading" @click="saveSettings">
-                保存配置
-              </n-button>
-            </n-space>
-          </n-card>
-        </n-space>
+    <template v-else-if="config">
+      <div class="settings-overview">
+        <NCard class="overview-card overview-card-primary" :bordered="false">
+          <div class="overview-icon">
+            <NIcon :size="18"><SettingsOutline /></NIcon>
+          </div>
+          <div class="overview-body">
+            <span class="overview-label">来源策略</span>
+            <span class="overview-value">{{ sourceSummary }}</span>
+          </div>
+        </NCard>
+        <NCard class="overview-card" :bordered="false">
+          <div class="overview-icon">
+            <NIcon :size="18"><SparklesOutline /></NIcon>
+          </div>
+          <div class="overview-body">
+            <span class="overview-label">LLM 日预算</span>
+            <span class="overview-value">${{ config.llm.daily_budget.toFixed(2) }}</span>
+          </div>
+        </NCard>
+        <NCard class="overview-card" :bordered="false">
+          <div class="overview-icon">
+            <NIcon :size="18"><TimeOutline /></NIcon>
+          </div>
+          <div class="overview-body">
+            <span class="overview-label">日报调度</span>
+            <span class="overview-value">{{ config.scheduler.digest_cron }}</span>
+          </div>
+        </NCard>
       </div>
-    </n-spin>
+
+      <div class="settings-grid">
+        <NCard class="settings-card" :bordered="false">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">来源配额</h3>
+              <p class="card-copy">控制 venue / arXiv 每日投喂量和补足策略。</p>
+            </div>
+            <NTag round :bordered="false" class="card-tag">Sources</NTag>
+          </div>
+          <NForm label-placement="left" label-width="100">
+            <NFormItem label="每日总篇数">
+              <NInputNumber v-model:value="config.sources.daily_total" :min="1" :max="20" style="width: 160px;" />
+            </NFormItem>
+            <NFormItem label="填充策略">
+              <NSelect v-model:value="config.sources.fill_policy" :options="[
+                { label: '宁缺毋滥 (strict)', value: 'strict' },
+                { label: '跨桶补足 (spillover)', value: 'spillover' },
+              ]" style="width: 220px;" />
+            </NFormItem>
+          </NForm>
+          <NDivider />
+          <SourceQuotaEditor :buckets="config.sources.buckets" @update="handleBucketsUpdate" />
+        </NCard>
+
+        <NCard class="settings-card" :bordered="false">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">LLM 配置</h3>
+              <p class="card-copy">约束预算、批量大小和熔断阈值，避免推送链路失控。</p>
+            </div>
+            <NTag round :bordered="false" class="card-tag">Budget</NTag>
+          </div>
+          <NForm label-placement="left" label-width="120">
+            <NFormItem label="每日预算 (USD)">
+              <NInputNumber v-model:value="config.llm.daily_budget" :min="0" :max="100" :step="0.1" style="width: 160px;" />
+            </NFormItem>
+            <NFormItem label="单次成本上限">
+              <NInputNumber v-model:value="config.llm.max_cost_per_call" :min="0" :max="10" :step="0.01" style="width: 160px;" />
+            </NFormItem>
+            <NFormItem label="批量大小">
+              <NInputNumber v-model:value="config.llm.batch_size" :min="1" :max="50" style="width: 160px;" />
+            </NFormItem>
+            <NFormItem label="熔断阈值">
+              <NInputNumber v-model:value="config.llm.circuit_threshold" :min="1" :max="20" style="width: 160px;" />
+            </NFormItem>
+            <NFormItem label="冷却时间 (秒)">
+              <NInputNumber v-model:value="config.llm.circuit_cooldown_sec" :min="60" :max="3600" :step="60" style="width: 160px;" />
+            </NFormItem>
+          </NForm>
+        </NCard>
+
+        <NCard class="settings-card" :bordered="false">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">调度器</h3>
+              <p class="card-copy">定义抓取和 digest 的执行节奏，保持输出稳定。</p>
+            </div>
+            <NTag round :bordered="false" class="card-tag">Scheduler</NTag>
+          </div>
+          <NForm label-placement="left" label-width="120">
+            <NFormItem label="日报 Cron">
+              <NInput v-model:value="config.scheduler.digest_cron" style="width: 220px;" />
+            </NFormItem>
+            <NFormItem label="抓取 Cron">
+              <NInput v-model:value="config.scheduler.fetch_cron" style="width: 220px;" />
+            </NFormItem>
+          </NForm>
+        </NCard>
+      </div>
+    </template>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import type { SystemConfig } from '../types';
-import { settingsApi } from '../api/settings';
-import SourceQuotaEditor from '../components/SourceQuotaEditor.vue';
-import { useMessage } from 'naive-ui';
-
-const config = ref<SystemConfig | null>(null);
-const loading = ref(false);
-const saveLoading = ref(false);
-const message = useMessage();
-
-const fillPolicyOptions = [
-  { label: '宁缺毋滥 (strict)', value: 'strict' },
-  { label: '其他桶补足 (spillover)', value: 'spillover' }
-];
-
-onMounted(() => {
-  fetchSettings();
-});
-
-async function fetchSettings() {
-  loading.value = true;
-  try {
-    const res = await settingsApi.get();
-    config.value = res.data;
-  } catch (err) {
-    message.error('获取系统设置失败');
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function saveSettings() {
-  if (!config.value) return;
-  saveLoading.value = true;
-  try {
-    const res = await settingsApi.update(config.value);
-    config.value = res.data;
-    message.success('配置已保存');
-  } catch (err: any) {
-    const errMsg = err.response?.data?.detail || '保存配置失败';
-    message.error(errMsg);
-  } finally {
-    saveLoading.value = false;
-  }
-}
-</script>
-
 <style scoped>
-.settings-view {
-  max-width: 900px;
-  margin: 0 auto;
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 100px 0;
 }
-.weight-slider-row {
+
+.settings-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.overview-card {
+  border-radius: 12px !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+}
+
+.overview-card-primary {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%),
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 35%) !important;
+}
+
+.overview-card :deep(.n-card__content) {
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 100%;
+  padding: 18px 20px !important;
 }
-.weight-slider-row .n-slider {
-  flex: 1;
+
+.overview-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  color: #1d4ed8;
+  flex-shrink: 0;
+}
+
+.overview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.overview-label {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.overview-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  overflow-wrap: anywhere;
+}
+
+.settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-card {
+  border-radius: 12px !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+}
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.card-copy {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.card-tag {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  border: 1px solid #e2e8f0;
+}
+
+@media (max-width: 1024px) {
+  .settings-overview {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .card-head {
+    flex-direction: column;
+  }
 }
 </style>

@@ -1,11 +1,10 @@
-import client from './client';
-import type { SystemConfig } from '../types';
+import client from './client'
+import type { SystemConfig } from '@/types'
 
-export const settingsApi = {
-  get() {
-    return client.get<SystemConfig>('/api/settings');
-  },
-  update(config: SystemConfig) {
-    return client.put<SystemConfig>('/api/settings', config);
-  },
-};
+export function getSettings() {
+  return client.get<SystemConfig>('/api/settings')
+}
+
+export function updateSettings(data: Partial<SystemConfig>) {
+  return client.put<SystemConfig>('/api/settings', data)
+}

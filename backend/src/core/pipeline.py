@@ -370,14 +370,14 @@ async def run_digest_job(digest_date: date | None = None) -> dict:
             "channel": "email",
             "status": status,
             "degraded": degraded,
+            "paper_ids": [p.id for p in selected],
+            "bucket_breakdown": bucket_breakdown,
         }
         if email_sent:
             now = utc_now()
             for paper in selected:
                 paper.pushed = True
                 paper.pushed_at = now
-            record_kwargs["paper_ids"] = [p.id for p in selected]
-            record_kwargs["bucket_breakdown"] = bucket_breakdown
 
         record = DigestHistory(**record_kwargs)
         db.add(record)

@@ -60,6 +60,11 @@ class TestParseEntry:
 
 
 class TestFetchArxiv:
+    def test_arxiv_api_uses_https(self):
+        from src.core.fetcher import ARXIV_API
+
+        assert ARXIV_API.startswith("https://")
+
     @pytest.mark.asyncio
     async def test_fetch_single_page(self):
         feed_xml = f"""<feed xmlns="http://www.w3.org/2005/Atom">
@@ -79,6 +84,7 @@ class TestFetchArxiv:
         assert results[0].arxiv_id == "2506.12345v1"
 
         params = mock_client.get.call_args.kwargs["params"]
+        assert mock_client.get.call_args.kwargs["follow_redirects"] is True
         assert params["search_query"] == (
             "(cat:cs.DC) AND submittedDate:[202506150000 TO 202506152359]"
         )
