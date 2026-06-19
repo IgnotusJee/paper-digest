@@ -36,6 +36,9 @@ paper-digest/
 │   ├── scripts/
 │   │   ├── init_db.py          # seed 唯一账号 + 默认配置（幂等）
 │   │   ├── seed_keywords.py    # 加载关键词预设（Phase 3）
+│   │   ├── run_fetch.py        # 手动抓取入口
+│   │   ├── run_digest.py       # 手动生成 digest
+│   │   ├── run_translate.py    # 手动翻译 digest/论文
 │   │   └── gen_client_cert.sh  # 自建 CA + 签设备证书（Phase 0）
 │   ├── prompts/                # LLM 提示词（Phase 4）
 │   ├── templates/email.html    # 邮件模板（Phase 5）
@@ -138,11 +141,18 @@ npm run build          # 输出到 frontend/dist/
 | 6 | 前端（Vue 3 + Naive UI） | ✅ |
 | 7 | 部署上线（Nginx mTLS + APScheduler） | ⬜ |
 
+## 最新进展
+
+- 已修复 arXiv 抓取在当前环境下的 301 重定向问题，真实论文抓取已恢复。
+- 已接通 DeepSeek `deepseek-v4-flash`，本地可实际完成 LLM 精排，`degraded=false` 的 digest 已验证。
+- 已补本地失败 digest 预览链路：即使 SMTP 未配置，前端仍可查看当天推荐结果。
+- 已新增手动翻译脚本，能把中文标题、摘要和结构化总结写回数据库并在前端展示。
+
 ## 前端补充说明
 
 - 当前主视觉已经统一到偏 Linear 的研究工作台风格，重点服务 AI researcher 的“扫读论文 -> 标记反馈 -> 调整订阅”流程。
 - 已完成统一收口的页面：`/login`、`/dashboard`、`/digest`、`/papers`、`/keywords`、`/settings`。
-- 下一步前端重点不是继续堆页面，而是提升阅读流与设置流的效率：优先改 `PaperDetail`、`Digest`、筛选体验和前端自动化验收。
+- 下一步前端重点不是继续堆页面，而是提升阅读流与设置流的效率：优先改 `PaperDetail`、`Digest`、筛选体验、手动运维入口和前端自动化验收。
 
 ## 参考文档
 

@@ -405,6 +405,10 @@ paper-digest/
 - 已补 Phase 2 的生产正确性修复：arXiv comments/DOI 按 `arxiv:` 扩展命名空间解析；API 查询包含 `submittedDate` 日期范围；跨源合并时已有 `venue`/`venue_hint` 的记录保持或升级到 venue 桶；upsert 异常统一计入 `errors`。
 - 已增加回归测试覆盖上述路径。已解决本机 sandbox/WSL/conda 环境下 `aiosqlite` worker 线程回调无法唤醒事件循环的问题，完整后端测试可跑通。
 
+**进度记录（2026-06-19）**：
+- 已完成 arXiv 抓取链路回归修复：抓取器改用 `https://export.arxiv.org/api/query`，并显式跟随重定向，修复了 `http -> 301` 导致容器/本地环境下抓取首跳失败的问题。
+- 已在本地 Docker 环境验证真实抓取成功：手动执行 `run_fetch.py --date 2026-06-18`，成功新增 254 篇真实论文入库，当前不再依赖样例数据浏览前端。
+
 **验收标准**：
 - 运行 `run_fetch.py` 后 papers 表有新记录
 - 同一篇论文重复抓取后表中仍只有一条记录
@@ -461,6 +465,12 @@ paper-digest/
 - 已完成 Phase 4 的审计回归修复：`/api/settings` 现执行严格配置校验并仅负责保存；`run_scoring_job()` 改为每次重算全部论文的 `keyword_score/personal_score/prefilter_score/bucket`；LLM 在收到 200 响应且提供 usage 时，会先记账再做 JSON/schema/validator 校验，因此 malformed-but-200 响应也会计入当日成本。
 - 已补充 LLM 计费、LLM 降级、settings 校验、全量 rescoring 的回归测试，完整后端测试当前通过。
 
+**进度记录（2026-06-19）**：
+- 已接通真实 DeepSeek 提供方，本地运行时配置切换为仅使用 `deepseek`，模型为 `deepseek-v4-flash`。
+- 已完成真实 LLM 精排验证：手动执行 `run_digest.py` 时返回 `degraded=False`，说明 shortlist 已通过 DeepSeek 精排，而非仅走 prefilter 降级路径。
+- 已新增手动翻译脚本 `scripts/run_translate.py`，可针对某日 digest 或最近未翻译论文生成 `title_cn / abstract_cn / summary_cn` 并写回数据库。
+- 已补齐翻译链路的容错：当批量翻译输出 JSON 不稳定时，脚本自动回退为单篇翻译，以保证本地环境可以稳定落库中文字段。
+
 **验收标准**：
 - 给 12 篇测试论文调 LLM，返回正确 JSON，papers 表 llm_score 有值
 - 手动把 daily_budget 设为 ¥0.001，再调 LLM → 抛 `LLMUnavailable`，pipeline 降级为 prefilter 序
@@ -492,6 +502,8 @@ paper-digest/
 - `EmailNotifier.send_digest()` 已修复 MIME 组装，digest 正文以 HTML multipart 发送，不再把 HTML 当纯文本正文。
 - 已完成本地 Docker 验收：使用临时 compose override 拉起 `backend + mysql:8.0`，执行 `alembic upgrade head`、`scripts/init_db.py`、`scripts/seed_keywords.py --preset llm_infra`，并完成登录、`/api/papers`、`/api/keywords`、`/api/settings`、feedback GET/POST、登录态 tag、`/api/digest/{date}` 的容器内 HTTP 联调。
 - 已验证 digest 失败路径：在未配置 SMTP 的本地环境执行 `scripts/run_digest.py --date 2026-06-19`，返回 `sent=False` / `email_status='failed'` / `degraded=True`；数据库确认失败历史已落库，且候选论文保持 `pushed=False`，符合“失败不消费、同日可重试”的预期。
+- 已补充本地预览能力：即使 SMTP 未配置、digest 投递失败，失败记录也会保留 `paper_ids` 与 `bucket_breakdown`，因此 `/api/digest` 和前端页面仍可预览当天推荐结果。
+- 已验证同日可重跑 digest：在接通真实 DeepSeek 后重新生成 `2026-06-19` 的 digest，最新一条历史记录变为 `degraded=false`，前端提示可随之消除。
 
 **验收标准**：
 - 运行 `run_digest.py` 且 SMTP 可用：仅成功发送后 `papers.pushed=True`，`digest_history.status='sent'`，并记录 `degraded`
@@ -541,6 +553,8 @@ paper-digest/
 - 细化设置页：将来源、LLM、调度拆成更明确的分区或子页，并增加“待保存变更”的可视化提示。
 - 提升关键词管理效率：支持表格内直接改权重、批量导入和更明确的分类/来源筛选。
 - 补前端自动化验收：引入 Playwright 冒烟测试，覆盖登录、digest 浏览、关键词 CRUD、设置保存。
+- 将手动翻译入口接入正式 pipeline：在 digest 生成后自动写回 `title_cn / abstract_cn / summary_cn`，避免每次手动执行 `run_translate.py`。
+- 为设置页补一个“手动抓取 / 手动生成 digest / 手动翻译”的调试入口，便于本地和生产环境排障。
 
 **验收标准**：
 - 无客户端证书的浏览器访问 443 → Nginx 400（TLS 握手失败，此阶段配好 Nginx mTLS）
