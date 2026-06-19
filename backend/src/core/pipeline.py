@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import APP_CONFIG, get_app_config, load_prompt
 from ..database import async_session_factory
-from ..models import Paper, Keyword
+from ..models import Paper, Keyword, User, DigestHistory
 from .dedup import find_duplicate, merge_into, title_hash
 from .fetcher import PaperRaw, fetch_arxiv
 from .llm_client import BATCH_SCORE_SCHEMA, LLMChain, LLMUnavailable
@@ -314,3 +314,82 @@ async def run_llm_rank(
         "selected": selected,
         "degraded": degraded,
     }
+
+
+async def run_digest_job(digest_date: date | None = None) -> dict:
+    from ..notifier import EmailNotifier
+    from ..models import utc_now
+
+    if digest_date is None:
+        digest_date = date.today()
+
+    async with async_session_factory() as db:
+        existing = await db.execute(
+            select(DigestHistory.id).where(
+                DigestHistory.digest_date == digest_date,
+                DigestHistory.status == "sent",
+            )
+        )
+        if existing.scalar_one_or_none():
+            logger.info("Digest already sent for %s, skipping", digest_date)
+            return {"sent": False, "reason": "already_sent"}
+
+        app_config = await get_app_config(db)
+
+        await run_scoring_job(db)
+        shortlist = await generate_shortlist(db)
+        if not shortlist:
+            logger.warning("No papers in shortlist for %s", digest_date)
+            return {"sent": False, "reason": "no_papers"}
+
+        llm_result = await run_llm_rank(shortlist, db)
+        selected = llm_result["selected"]
+        degraded = llm_result["degraded"]
+
+        if not selected:
+            logger.warning("No papers selected for %s", digest_date)
+            return {"sent": False, "reason": "no_papers"}
+
+        bucket_breakdown: dict[str, list[int]] = {}
+        for paper in selected:
+            bucket = paper.bucket or "arxiv"
+            bucket_breakdown.setdefault(bucket, []).append(paper.id)
+
+        user_result = await db.execute(select(User).where(User.is_active.is_(True)).limit(1))
+        user = user_result.scalar_one_or_none()
+
+        email_sent = False
+        if user:
+            notifier = EmailNotifier()
+            email_sent = await notifier.send_digest(user, selected, digest_date)
+
+        status = "sent" if email_sent else "failed"
+
+        record_kwargs = {
+            "digest_date": digest_date,
+            "channel": "email",
+            "status": status,
+            "degraded": degraded,
+        }
+        if email_sent:
+            now = utc_now()
+            for paper in selected:
+                paper.pushed = True
+                paper.pushed_at = now
+            record_kwargs["paper_ids"] = [p.id for p in selected]
+            record_kwargs["bucket_breakdown"] = bucket_breakdown
+
+        record = DigestHistory(**record_kwargs)
+        db.add(record)
+        await db.commit()
+
+        logger.info(
+            "Digest job done for %s: %d papers, degraded=%s, email=%s",
+            digest_date, len(selected), degraded, status,
+        )
+        return {
+            "sent": email_sent,
+            "count": len(selected),
+            "degraded": degraded,
+            "email_status": status,
+        }

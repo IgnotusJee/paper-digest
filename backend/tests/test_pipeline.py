@@ -4,7 +4,7 @@ from unittest.mock import patch, AsyncMock
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
-from src.models import Paper
+from src.models import DigestHistory, Paper, User
 from src.core.dedup import title_hash
 
 
@@ -181,3 +181,160 @@ class TestRunFetchJob:
             assert paper.bucket == "venue"
             assert paper.pushed is True
             assert paper.abstract_en == "arXiv version abstract."
+
+
+class TestRunDigestJob:
+    @staticmethod
+    async def _generate_shortlist(db: AsyncSession):
+        result = await db.execute(select(Paper).where(Paper.pushed.is_(False)).order_by(Paper.id))
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def _run_llm_rank(shortlist, db: AsyncSession, degraded: bool):
+        return {
+            "papers": shortlist,
+            "selected": shortlist,
+            "degraded": degraded,
+        }
+
+    @pytest.mark.asyncio
+    async def test_digest_job_success_marks_papers_and_records_degraded(self, db_engine):
+        from src.core.pipeline import run_digest_job
+
+        session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
+        async with session_factory() as session:
+            session.add(User(username="digest", email="digest@example.com", hashed_password="x"))
+            session.add(Paper(
+                title="Digest Paper",
+                title_hash="digestjob000001",
+                source="arxiv",
+                bucket="arxiv",
+                prefilter_score=8.0,
+            ))
+            await session.commit()
+
+        async def fake_run_llm_rank(shortlist, db):
+            return await self._run_llm_rank(shortlist, db, degraded=True)
+
+        with patch("src.core.pipeline.async_session_factory", _SessionFactoryWrapper(session_factory)):
+            with patch("src.core.pipeline.run_scoring_job", new_callable=AsyncMock, return_value={"scored": 1}):
+                with patch("src.core.pipeline.generate_shortlist", new_callable=AsyncMock, side_effect=self._generate_shortlist):
+                    with patch("src.core.pipeline.run_llm_rank", new_callable=AsyncMock, side_effect=fake_run_llm_rank):
+                        with patch("src.notifier.EmailNotifier.send_digest", new_callable=AsyncMock, return_value=True):
+                            result = await run_digest_job(date(2025, 6, 15))
+
+        assert result["sent"] is True
+        assert result["email_status"] == "sent"
+        assert result["degraded"] is True
+
+        async with session_factory() as session:
+            paper = (await session.execute(select(Paper))).scalar_one()
+            assert paper.pushed is True
+            assert paper.pushed_at is not None
+
+            history = (await session.execute(select(DigestHistory))).scalar_one()
+            assert history.status == "sent"
+            assert history.degraded is True
+            assert history.paper_ids == [paper.id]
+            assert history.bucket_breakdown == {"arxiv": [paper.id]}
+
+    @pytest.mark.asyncio
+    async def test_digest_job_failed_email_keeps_papers_unpushed(self, db_engine):
+        from src.core.pipeline import run_digest_job
+
+        session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
+        async with session_factory() as session:
+            session.add(User(username="digest", email="digest@example.com", hashed_password="x"))
+            session.add(Paper(
+                title="Digest Paper",
+                title_hash="digestjob000002",
+                source="arxiv",
+                bucket="arxiv",
+                prefilter_score=8.0,
+            ))
+            await session.commit()
+
+        async def fake_run_llm_rank(shortlist, db):
+            return await self._run_llm_rank(shortlist, db, degraded=False)
+
+        with patch("src.core.pipeline.async_session_factory", _SessionFactoryWrapper(session_factory)):
+            with patch("src.core.pipeline.run_scoring_job", new_callable=AsyncMock, return_value={"scored": 1}):
+                with patch("src.core.pipeline.generate_shortlist", new_callable=AsyncMock, side_effect=self._generate_shortlist):
+                    with patch("src.core.pipeline.run_llm_rank", new_callable=AsyncMock, side_effect=fake_run_llm_rank):
+                        with patch("src.notifier.EmailNotifier.send_digest", new_callable=AsyncMock, return_value=False):
+                            result = await run_digest_job(date(2025, 6, 15))
+
+        assert result["sent"] is False
+        assert result["email_status"] == "failed"
+        assert result["degraded"] is False
+
+        async with session_factory() as session:
+            paper = (await session.execute(select(Paper))).scalar_one()
+            assert paper.pushed is False
+            assert paper.pushed_at is None
+
+            history = (await session.execute(select(DigestHistory))).scalar_one()
+            assert history.status == "failed"
+            assert history.degraded is False
+            assert history.paper_ids is None
+            assert history.bucket_breakdown is None
+
+    @pytest.mark.asyncio
+    async def test_digest_job_allows_retry_when_only_failed_history_exists(self, db_engine):
+        from src.core.pipeline import run_digest_job
+
+        session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
+        async with session_factory() as session:
+            session.add(User(username="digest", email="digest@example.com", hashed_password="x"))
+            session.add(Paper(
+                title="Digest Paper",
+                title_hash="digestjob000003",
+                source="arxiv",
+                bucket="arxiv",
+                prefilter_score=8.0,
+            ))
+            session.add(DigestHistory(
+                digest_date=date(2025, 6, 15),
+                channel="email",
+                status="failed",
+                degraded=False,
+            ))
+            await session.commit()
+
+        async def fake_run_llm_rank(shortlist, db):
+            return await self._run_llm_rank(shortlist, db, degraded=False)
+
+        with patch("src.core.pipeline.async_session_factory", _SessionFactoryWrapper(session_factory)):
+            with patch("src.core.pipeline.run_scoring_job", new_callable=AsyncMock, return_value={"scored": 1}):
+                with patch("src.core.pipeline.generate_shortlist", new_callable=AsyncMock, side_effect=self._generate_shortlist):
+                    with patch("src.core.pipeline.run_llm_rank", new_callable=AsyncMock, side_effect=fake_run_llm_rank):
+                        with patch("src.notifier.EmailNotifier.send_digest", new_callable=AsyncMock, return_value=True):
+                            result = await run_digest_job(date(2025, 6, 15))
+
+        assert result["sent"] is True
+        assert result["email_status"] == "sent"
+        assert result.get("reason") != "already_sent"
+
+        async with session_factory() as session:
+            histories = list((await session.execute(select(DigestHistory).order_by(DigestHistory.id))).scalars().all())
+            assert len(histories) == 2
+            assert [history.status for history in histories] == ["failed", "sent"]
+
+    @pytest.mark.asyncio
+    async def test_digest_job_skips_when_success_history_exists(self, db_engine):
+        from src.core.pipeline import run_digest_job
+
+        session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
+        async with session_factory() as session:
+            session.add(DigestHistory(
+                digest_date=date(2025, 6, 15),
+                channel="email",
+                status="sent",
+                degraded=False,
+            ))
+            await session.commit()
+
+        with patch("src.core.pipeline.async_session_factory", _SessionFactoryWrapper(session_factory)):
+            result = await run_digest_job(date(2025, 6, 15))
+
+        assert result == {"sent": False, "reason": "already_sent"}

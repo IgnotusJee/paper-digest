@@ -17,6 +17,12 @@ JWT_EXPIRE_HOURS = 12
 
 BASE_URL: str = os.environ.get("BASE_URL", "http://localhost:8000")
 
+SMTP_HOST: str = os.environ.get("SMTP_HOST", "")
+SMTP_PORT: int = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER: str = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD: str = os.environ.get("SMTP_PASSWORD", "")
+SMTP_FROM: str = os.environ.get("SMTP_FROM", "")
+
 _cfg_path = Path(__file__).parent.parent / "config" / "default.json"
 with open(_cfg_path) as _f:
     APP_CONFIG: dict = json.load(_f)
