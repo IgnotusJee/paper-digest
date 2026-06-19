@@ -276,8 +276,8 @@ class TestRunDigestJob:
             history = (await session.execute(select(DigestHistory))).scalar_one()
             assert history.status == "failed"
             assert history.degraded is False
-            assert history.paper_ids is None
-            assert history.bucket_breakdown is None
+            assert history.paper_ids == [paper.id]
+            assert history.bucket_breakdown == {"arxiv": [paper.id]}
 
     @pytest.mark.asyncio
     async def test_digest_job_allows_retry_when_only_failed_history_exists(self, db_engine):
