@@ -55,8 +55,19 @@ paper-digest/
 │               ├── feedback.py # Phase 5+
 │               ├── keywords.py # Phase 3+
 │               ├── settings.py # Phase 4+
-│               └── sources.py  # Phase 6+
-└── frontend/                   # Vue 3（Phase 6）
+│               ├── sources.py  # Phase 6+
+└── frontend/                   # Vue 3 + Naive UI + TypeScript + Vite
+    ├── package.json
+    ├── vite.config.ts          # API 代理到 localhost:8000
+    └── src/
+        ├── main.ts             # 入口
+        ├── App.vue             # Naive UI 主题配置
+        ├── api/                # Axios 封装（client, auth, papers, digest, keywords, settings）
+        ├── types/index.ts      # TypeScript 接口
+        ├── stores/auth.ts      # Pinia 认证状态
+        ├── router/index.ts     # 路由 + 鉴权守卫
+        ├── components/         # AppLayout, PageHeader, PaperCard, TagButtonGroup, ScoreRing, SourceQuotaEditor, KeywordModal, EmptyState
+        └── views/              # Login, Dashboard, Digest, Papers, PaperDetail, Keywords, Settings
 ```
 
 ## 快速启动（开发）
@@ -76,16 +87,26 @@ alembic upgrade head
 python scripts/init_db.py
 # ADMIN_PASSWORD 只用于本步骤；seed 完成后可从运行时环境中移除
 
-# 4. 启动
-cd ..
-docker compose up -d
+# 4. 启动后端
+cd backend
+python -m uvicorn src.main:app --host 0.0.0.0 --port 8000
 
-# 5. 验证
+# 5. 启动前端（开发模式）
+cd frontend
+npm install
+npm run dev
+# 访问 http://localhost:5173
+
+# 6. 验证后端 API
 curl http://localhost:8000/health
 curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"<ADMIN_PASSWORD>"}' -c /tmp/c.txt
 curl http://localhost:8000/api/auth/me -b /tmp/c.txt
+
+# 7. 生产构建前端
+cd frontend
+npm run build          # 输出到 frontend/dist/
 ```
 
 ## 配置说明
@@ -109,11 +130,11 @@ curl http://localhost:8000/api/auth/me -b /tmp/c.txt
 |-------|------|------|
 | 0 | 环境准备（MySQL / mTLS 证书 / DNS） | ⬜ 手动 |
 | 1 | 后端骨架（认证 + 数据库） | ✅ |
-| 2 | arXiv 抓取 + 去重入库 | ⬜ |
+| 2 | arXiv 抓取 + 去重入库 | ✅ |
 | 3 | 评分管线（关键词 + 分桶 + 预筛） | ✅ |
-| 4 | LLM 集成（批量打分 + 成本控制） | ⬜ |
-| 5 | 邮件通知 + 反馈链接 | ⬜ |
-| 6 | 前端（Vue 3 + Naive UI） | ⬜ |
+| 4 | LLM 集成（批量打分 + 成本控制） | ✅ |
+| 5 | 邮件通知 + 反馈链接 | ✅ |
+| 6 | 前端（Vue 3 + Naive UI） | ✅ |
 | 7 | 部署上线（Nginx mTLS + APScheduler） | ⬜ |
 
 ## 参考文档
