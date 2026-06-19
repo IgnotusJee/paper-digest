@@ -477,19 +477,26 @@ paper-digest/
 
 **任务清单：**
 
-- [ ] `src/notifier/email_notifier.py`：aiosmtplib + Jinja2 模板，`send_digest(user, papers)`
-- [ ] `templates/email.html`：每篇论文展示 title_cn、venue/venue_hint 标注、summary_cn 各字段、PDF 链接、「查看/反馈」按钮（指向 `BASE_URL/papers/{id}`）
+- [x] `src/notifier/email_notifier.py`：aiosmtplib + Jinja2 模板，`send_digest(user, papers)`
+- [x] `templates/email.html`：每篇论文展示 title_cn、venue/venue_hint 标注、summary_cn 各字段、PDF 链接、「查看/反馈」按钮（指向 `BASE_URL/papers/{id}`）
 - [x] **反馈 token**：`src/auth.py` 中 `gen_feedback_token(paper_id, action, ttl=72h)` + `verify_feedback_token(token)`（HMAC-SHA256，绑 paper_id+action+exp）
-- [ ] `GET /api/papers/{id}/feedback?token=...&action=interested`：验证 token → 若已登录直接写 Tag；若未登录重定向登录页（登录后跳回）
-- [ ] `POST /api/papers/{id}/tag` + `DELETE /api/papers/{id}/tag`：已登录用户的直接反馈
-- [ ] `GET /api/digest` + `GET /api/digest/{date}`：返回当日/历史推荐
-- [ ] 手动触发脚本 `scripts/run_digest.py`（测试单次完整 pipeline）
+- [x] `GET /api/papers/{id}/feedback?t=...&action=interested`：验证 token，仅渲染确认页
+- [x] `POST /api/papers/{id}/feedback`：再次验证 token + action 后真正写入 Tag
+- [x] `POST /api/papers/{id}/tag` + `DELETE /api/papers/{id}/tag`：已登录用户的直接反馈
+- [x] `GET /api/digest` + `GET /api/digest/{date}`：返回当日/历史推荐，并暴露 `degraded`
+- [x] 手动触发脚本 `scripts/run_digest.py`（测试单次完整 pipeline）
+
+**进度记录（2026-06-19）**：
+- 已完成 Phase 5 审计回归修复：digest 仅在邮件发送成功后才会消费论文并写入成功历史；同日若只有失败历史则允许重试；`DigestHistory.status` 仅表示投递结果，新增 `degraded` 独立表示排序是否降级。
+- feedback 链接已调整为安全的二次确认模型：`GET /feedback` 只展示确认页，`POST /feedback` 才落库；重复提交 POST 幂等，最终只保留一个目标 tag。
+- `EmailNotifier.send_digest()` 已修复 MIME 组装，digest 正文以 HTML multipart 发送，不再把 HTML 当纯文本正文。
 
 **验收标准**：
-- 运行 `run_digest.py`：papers 表最终 6 篇 `pushed=True`，digest_history 有一条记录
+- 运行 `run_digest.py` 且 SMTP 可用：仅成功发送后 `papers.pushed=True`，`digest_history.status='sent'`，并记录 `degraded`
+- 运行 `run_digest.py` 且 SMTP 不可用：`digest_history.status='failed'`，论文保持 `pushed=False`，同日可再次重试
 - 收到邮件，HTML 格式正常，venue/venue_hint 分别标"已见刊"/"录用指向"，中文摘要各字段完整
-- 点邮件中的「查看/反馈」链接：未登录时跳登录页，登录后正确落到论文详情
-- 点 token 链接反馈 interested → tags 表有记录，且同一 token 第二次点失效（token 已使用或过期）
+- 点 token 链接：`GET` 仅展示确认页，不直接写库；确认页 `POST` 后 tags 表有记录
+- 重复提交同一 token 的 `POST` 请求结果幂等，最终仅保留一个目标 tag
 - 手动标记 21 条 interested + 21 条 not_interested → recommender mode 变为 `model`
 
 ---
