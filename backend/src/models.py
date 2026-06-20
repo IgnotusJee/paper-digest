@@ -42,6 +42,7 @@ class Paper(Base):
     abstract_en: Mapped[Optional[str]] = mapped_column(LONG_TEXT)
     abstract_cn: Mapped[Optional[str]] = mapped_column(LONG_TEXT)
     summary_cn: Mapped[Optional[dict]] = mapped_column(JSON)
+    fulltext_cn: Mapped[Optional[str]] = mapped_column(LONG_TEXT)
     comments: Mapped[Optional[str]] = mapped_column(Text)
     url: Mapped[Optional[str]] = mapped_column(Text)
     pdf_url: Mapped[Optional[str]] = mapped_column(Text)

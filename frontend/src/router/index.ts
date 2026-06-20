@@ -20,6 +20,7 @@ const router = createRouter({
         { path: 'digest', name: 'digest', component: () => import('@/views/Digest.vue') },
         { path: 'papers', name: 'papers', component: () => import('@/views/Papers.vue') },
         { path: 'papers/:id', name: 'paper-detail', component: () => import('@/views/PaperDetail.vue') },
+        { path: 'papers/:id/fulltext', name: 'paper-fulltext', component: () => import('@/views/FullText.vue') },
         { path: 'keywords', name: 'keywords', component: () => import('@/views/Keywords.vue') },
         { path: 'settings', name: 'settings', component: () => import('@/views/Settings.vue') },
       ],

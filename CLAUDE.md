@@ -5,12 +5,13 @@ AI 论文日报系统：每天自动从 arXiv 与顶会发现 LLM 存储/推理/
 ## 架构
 
 ```
-Nginx (443, mTLS) → FastAPI backend (8000) → MySQL (外部容器)
-                                            → DeepSeek / Kimi API
-                                            → arXiv API
+Nginx (80/443) → 前端静态文件 (Vue SPA)
+               → /api → FastAPI backend (8000) → MySQL (容器)
+                                               → DeepSeek / Kimi API
+                                               → arXiv API
 ```
 
-2 个 Docker 容器（backend + nginx），复用现有 VPS MySQL 容器。
+3 个 Docker 容器：frontend (Nginx) + backend (FastAPI) + mysql。
 
 ## 技术栈
 
@@ -25,10 +26,13 @@ Nginx (443, mTLS) → FastAPI backend (8000) → MySQL (外部容器)
 
 ```
 paper-digest/
-├── Dockerfile.backend
-├── docker-compose.yml          # backend + nginx；Phase 7 加 nginx 容器
-├── .env.example                # 复制为 .env 后填写
-├── certs/                      # TLS 证书（不入库）
+├── Dockerfile.backend           # 后端镜像（含数据库迁移 + 启动脚本）
+├── Dockerfile.frontend          # 前端镜像（Node 构建 + Nginx 服务）
+├── docker-compose.yml           # 3 容器编排：mysql + backend + frontend
+├── docker-entrypoint.sh         # 后端入口：迁移 → seed → uvicorn
+├── nginx/frontend.conf          # Nginx 配置：静态文件 + API 反代
+├── .env.example                 # 复制为 .env 后填写
+├── certs/                       # TLS 证书（不入库）
 ├── backend/
 │   ├── requirements.txt
 │   ├── alembic.ini + alembic/  # 数据库迁移
@@ -111,6 +115,31 @@ curl http://localhost:8000/api/auth/me -b /tmp/c.txt
 # 7. 生产构建前端
 cd frontend
 npm run build          # 输出到 frontend/dist/
+```
+
+## Docker 部署
+
+```bash
+# 1. 配置环境变量
+cp .env.example .env
+# 编辑 .env，填写 JWT_SECRET、ADMIN_PASSWORD、DEEPSEEK_API_KEY 等
+
+# 2. 构建并启动所有容器
+docker compose up -d --build
+
+# 3. 查看日志
+docker compose logs -f
+
+# 4. 访问
+# 前端：http://localhost（或 .env 中 FRONTEND_PORT 指定的端口）
+# API 文档：http://localhost/api/docs
+# 健康检查：http://localhost/health
+
+# 5. 停止
+docker compose down
+
+# 6. 停止并清除数据（包括数据库）
+docker compose down -v
 ```
 
 ## 配置说明

@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage, NCard, NText, NSpace, NTag, NButton, NCollapse, NCollapseItem, NIcon, NSpin, NDivider } from 'naive-ui'
-import { ArrowBackOutline, DocumentOutline, OpenOutline, CopyOutline, PeopleOutline, CalendarOutline, LinkOutline } from '@vicons/ionicons5'
+import { ArrowBackOutline, DocumentOutline, OpenOutline, CopyOutline, PeopleOutline, CalendarOutline, LinkOutline, BookOutline } from '@vicons/ionicons5'
 import TagButtonGroup from '@/components/TagButtonGroup.vue'
 import ScoreRing from '@/components/ScoreRing.vue'
 import * as papersApi from '@/api/papers'
@@ -167,6 +167,10 @@ onMounted(fetchPaper)
               <NButton v-if="paper.pdf_url" block secondary tag="a" :href="paper.pdf_url" target="_blank">
                 <template #icon><NIcon :component="DocumentOutline" /></template>
                 PDF
+              </NButton>
+              <NButton block secondary @click="router.push(`/papers/${paper.id}/fulltext`)">
+                <template #icon><NIcon :component="BookOutline" /></template>
+                全文阅读 / 翻译
               </NButton>
               <NButton v-if="paper.url" block secondary tag="a" :href="paper.url" target="_blank">
                 <template #icon><NIcon :component="OpenOutline" /></template>

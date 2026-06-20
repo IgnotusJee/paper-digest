@@ -1,24 +1,53 @@
-version: "3.9"
-
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: paper-digest-mysql
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-paper_digest}
+      MYSQL_USER: ${MYSQL_USER:-pd_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-pd_pass}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    command:
+      - --default-authentication-plugin=mysql_native_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    ports:
-      - "8000:8000"
+    container_name: paper-digest-backend
     env_file: .env
+    environment:
+      DATABASE_URL: mysql+asyncmy://${MYSQL_USER:-pd_user}:${MYSQL_PASSWORD:-pd_pass}@mysql:3306/${MYSQL_DATABASE:-paper_digest}
+      SKIP_FRONTEND_SERVE: "1"
+    depends_on:
+      mysql:
+        condition: service_healthy
     volumes:
       - models_data:/app/models
-      - ./frontend/dist:/app/frontend/dist:ro
-    networks:
-      - mysql_net
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: paper-digest-frontend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - backend
     restart: unless-stopped
 
 volumes:
+  mysql_data:
   models_data:
-
-networks:
-  mysql_net:
-    external: true
-    name: ${MYSQL_NETWORK}
